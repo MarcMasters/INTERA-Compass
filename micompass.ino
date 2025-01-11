@@ -233,14 +233,6 @@ void clearLCD(int centerX, int centerY) {
   // M5.Lcd.drawString("O", 55, textY);
 }
 
-// void setCompassNeedle(int needleX = 160, int needleY = 120){
-//   // Dibujar un círculo en la pantalla
-//   int radius = 7;
-//   uint16_t fillColor = TFT_RED;   // Color de relleno del círculo
-
-//   M5.Lcd.fillCircle(needleX, needleY, radius, fillColor);
-// }
-
 // void initCompassConfig() {
 //   img.setColorDepth(1);              // Set bits per pixel for colour.  
 //   img.setTextColor(TFT_WHITE);       // Set the font foreground colour (background
@@ -271,7 +263,7 @@ void drawHeading(float head_dir, int xPos, int yPos, int centerH){
 
   // Dibujar pequeño triángulo
   int x1 = centerH-5; int x2 = centerH+5; int x3 = centerH;
-  int y1 = yPos+h/2;  int y2 = y1;        int y3 = y1+8;
+  int y1 = yPos+h/2;  int y2 = y1;        int y3 = y1+6;
   M5.Lcd.fillTriangle(x1,y1,x2,y2,x3,y3,TFT_WHITE);
 
   // Refrescar numeros
@@ -282,18 +274,20 @@ void drawHeading(float head_dir, int xPos, int yPos, int centerH){
   setHeadingStr(head_dir, xPos, yPos);
 }
 
-void setNeedle(float heading){
-    // Cos y Sin estan invertidos por adaptacion al sistema de referencia de una brujula
-    // (0 arriba y 180 abajo, a diferencia del sistema trigonométrico de 0 derecha y 180 izquierda)
-    
-    // M5.Width/2 + sin(heading(rad)) * (circle_radius-offset)
-    float x1 = M5.Lcd.width()/2 + sin(heading * (M_PI / 180.0)) * (80-10);
-    // M5.Height/2 - cos(heading(rad)) * (circle_radius-offset)
-    float y1 = M5.Lcd.height()/2 - cos(heading * (M_PI / 180.0)) * (80-10);
-    M5.Lcd.fillCircle(x1, y1, 5, TFT_WHITE);
+void setNeedle(float heading, int centerV, int centerH){
+  centerV += 20;
+  // Cos y Sin estan invertidos por adaptacion al sistema de referencia de una brujula
+  // (0 arriba y 180 abajo, a diferencia del sistema trigonométrico de 0 derecha y 180 izquierda)
+  
+  // M5.Width/2 + sin(heading(rad)) * (circle_radius-offset)
+  float x1 = centerH + sin(heading * (M_PI / 180.0)) * (80-10);
+  // M5.Height/2 - cos(heading(rad)) * (circle_radius-offset)
+  float y1 = centerV - cos(heading * (M_PI / 180.0)) * (80-10);
+  M5.Lcd.fillCircle(x1, y1, 5, TFT_WHITE);
 }
 
-void drawArrow(float centerH, float centerV){
+void drawArrow(int centerH, int centerV){
+  centerV += 20;
   const short size = 8;
   const short size2 = 3;
 
@@ -338,30 +332,108 @@ void drawArrow(float centerH, float centerV){
 
 }
 
+void drawLinesAndIndicators(int centerH, int centerV){
+  // Offset en Y
+  centerV += 20;
+
+  // Refrescar píxeles referentes a la brújula
+  M5.Lcd.fillCircle(centerH, centerV, 96, TFT_BLACK);
+
+  // Radio exterior y líneas pequeñas
+  int r1 = 95; int r2 = 88;
+
+  // Sustituyo el ángulo (head_direction) por i para dibujar todas las líneas automáticamente
+  for (int i=0; i<360; i+=5){
+    float x1 = centerH + sin(i * (M_PI / 180.0)) * r1;
+    float y1 = centerV - cos(i * (M_PI / 180.0)) * r1;
+
+    float x2 = centerH + sin(i * (M_PI / 180.0)) * r2;
+    float y2 = centerV - cos(i * (M_PI / 180.0)) * r2;
+  
+    M5.Lcd.drawLine(x1,y1,x2,y2,TFT_WHITE);
+  }
+
+  // Líneas medianas
+  int r3 = 81;
+  for (int i=0; i<360; i+=10){
+    float x1 = centerH + sin(i * (M_PI / 180.0)) * r1;
+    float y1 = centerV - cos(i * (M_PI / 180.0)) * r1;
+
+    float x3 = centerH + sin(i * (M_PI / 180.0)) * r3;
+    float y3 = centerV - cos(i * (M_PI / 180.0)) * r3;
+  
+    M5.Lcd.drawLine(x1,y1,x3,y3,TFT_WHITE);
+  }
+
+  // Líneas grandes
+  int r4 = 74;
+  for (int i=0; i<360; i+=30){
+    float x1 = centerH + sin(i * (M_PI / 180.0)) * r1;
+    float y1 = centerV - cos(i * (M_PI / 180.0)) * r1;
+
+    float x4 = centerH + sin(i * (M_PI / 180.0)) * r4;
+    float y4 = centerV - cos(i * (M_PI / 180.0)) * r4;
+  
+    M5.Lcd.drawLine(x1,y1,x4,y4,TFT_WHITE);
+  }
+
+  // NSEO y números
+  int r5 = 62; String i_str;
+  for (int i=0; i<360; i+=30){
+    float x5 = centerH + sin(i * (M_PI / 180.0)) * r5;
+    float y5 = centerV - cos(i * (M_PI / 180.0)) * r5;
+
+    switch (i) {
+      case 0:
+        i_str = "N";
+        break;
+      case 90:
+        i_str = "E";
+        break;    
+      case 180:
+        i_str = "S";
+        break;
+      case 270:
+        i_str = "O";
+        break;     
+      default:
+        i_str = String(i/10);
+        break;
+    }
+    
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setTextColor(TFT_PINK);
+    M5.Lcd.drawString(i_str,x5,y5,2);
+    // M5.Lcd.drawNumber(i/10,x5,y5);
+  }
+
+  // Comprobación radios
+  // M5.Lcd.drawCircle(centerH,centerV,r1,TFT_WHITE);
+  // M5.Lcd.drawCircle(centerH,centerV,r2,TFT_LIGHTGREY);
+  // M5.Lcd.drawCircle(centerH,centerV,r3,TFT_ORANGE);
+  // M5.Lcd.drawCircle(centerH,centerV,r4,TFT_BLUE);
+  // M5.Lcd.drawCircle(centerH,centerV,r5,TFT_PURPLE);
+}
+
 void setAdvancedUI(float head_dir){
   // Coordenadas del centro de la pantalla
   float lcdCenterH = M5.Lcd.width()/2;
   float lcdCenterV = M5.Lcd.height()/2;
 
   // Refrescar píxeles necesarios
-  clearLCD(lcdCenterH, lcdCenterV);
+  //clearLCD(lcdCenterH, lcdCenterV);
 
   // Dibujar dirección con marco
-  int xHead = lcdCenterH; int yHead = 20;
-  drawHeading(head_dir,xHead,yHead,lcdCenterH);
+  drawHeading(head_dir,lcdCenterH,20,lcdCenterH);
 
   // Aguja que apunta a la dirección
-  setNeedle(head_dir);
+  setNeedle(head_dir, lcdCenterV, lcdCenterH);
 
   // Dibujar flecha estática
   drawArrow(lcdCenterH,lcdCenterV);
 
-  // Posicion inicial y final de las lineas de la escala
-
-  // Posicion de los textos de la escala
-
-  // Dibujar lineas
-  //M5.Lcd.drawLine(x0,y0,x1,y1,TFT_WHITE);
+  // Dibujar líneas de dirección y textos de dirección
+  drawLinesAndIndicators(lcdCenterH, lcdCenterV);
 }
 
 /////////////////////////////////////////////////////////////////////////////
