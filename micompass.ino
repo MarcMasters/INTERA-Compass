@@ -8,6 +8,7 @@
 #include "M5_BMM150_DEFS.h"
 #include "Preferences.h"
 #include "math.h"
+#include <stdexcept> // Para lanzar excepciones
 
 /////////////////////////////////////////////////////////////////////////////
 // Funciones básicas magnetómetro
@@ -153,56 +154,75 @@ void invocar_calibracion_infinito(){
 // Buffer circular
 //
 
-#define CIRCULAR_BUFFER_LEN 50
+class CircularBuffer {
+private:
+    float* values;  // Puntero al array dinámico
+    int head;       // Índice donde se almacenará el próximo valor
+    int tail;       // Índice del valor más viejo
+    int length;     // Tamaño del buffer
+    int size;       // Número de elementos almacenados actualmente
 
-typedef struct {
-  int head;                           // Indice donde se almacena el proximo valor
-  int tail;                           // Indice del valor mas viejo
-  float values[CIRCULAR_BUFFER_LEN];  // Array de valores del tamaño del buffer establecido
-} circular_buffer;
-
-circular_buffer buf_x, buf_y, buf_z;;
-
-void value_clear(circular_buffer *buf);
-void value_queue(circular_buffer *buf, float value);
-float value_average(const circular_buffer *buf);
-
-// Estas variables hay que ponerlas en otro lado
-unsigned long prevMillis = 0;
-const long LCDinterval = 100; // Intervalo de refresco LCD
-
-// Limpiar el valor del buffer
-void value_clear(circular_buffer *buf) {
-  buf->head = 0;
-  buf->tail = 0;
-  memset(buf->values, 0, sizeof(buf->values));
-}
-
-// Añade un valor al buffer circular
-void value_queue(circular_buffer *buf, float value) {
-  buf->values[buf->head] = value;  // valor en indice head
-
-  // De esta forma, se le suma 1 hasta que se llena el buffer
-  buf->head = (buf->head + 1) % CIRCULAR_BUFFER_LEN;
-
-  // Si el buffer está lleno, se suma 1 a tail (nuevo valor mas viejo)
-  if (buf->head == buf->tail) {
-    buf->tail = (buf->tail + 1) % CIRCULAR_BUFFER_LEN;
-  }
-}
-
-// Calcula el promedio de los valores almacenados en el buffer
-float value_average(const circular_buffer *buf) {
-    float sum = 0;
-    int count = 0;
-    int i = buf->tail;
-    while (i != buf->head) {
-        sum += buf->values[i];
-        count++;
-        i = (i + 1) % CIRCULAR_BUFFER_LEN;
+public:
+    // Constructor: Inicializa el buffer con el tamaño especificado
+    CircularBuffer(int len) : head(0), tail(0), length(len), size(0) {
+        if (len <= 0) {
+            throw std::invalid_argument("El tamaño del buffer debe ser mayor a 0");
+        }
+        values = new float[len]; // Reserva memoria dinámica
     }
-    return (count > 0) ? sum / count : 0;
-}
+
+    // Destructor: Libera la memoria reservada
+    ~CircularBuffer() {
+        delete[] values;
+    }
+
+    // Método para agregar un valor al buffer
+    void push(float value) {
+        values[head] = value; // Agrega el valor en la posición `head`
+        head = (head + 1) % length; // Avanza el índice circular
+
+        if (size == length) {
+            // Si el buffer está lleno, mueve el `tail` para sobrescribir el más viejo
+            tail = (tail + 1) % length;
+        } else {
+            size++; // Incrementa el tamaño usado del buffer
+        }
+    }
+
+    // Método para obtener el valor más viejo (FIFO)
+    float pop() {
+        if (size == 0) {
+            return NULL;
+        }
+        float value = values[tail];
+        tail = (tail + 1) % length; // Avanza el índice circular
+        size--; // Reduce el tamaño usado
+        return value;
+    }
+
+    // Método para obtener el número de elementos almacenados
+    int current_size() const {
+        return size;
+    }
+
+    // Método para obtener el tamaño máximo del buffer
+    int max_size() const {
+        return length;
+    }
+
+    // Método para calcular la media de los valores del buffer
+    float media(){
+      if (size == 0){
+        return 0;
+      }
+
+      float sum = 0;
+      for (int i = 0, indice = tail; i < size; i++, indice = (indice + 1)%length){
+        sum += values[indice];
+      }
+      return sum / size;
+    }
+};
 
 //
 // Suavizado ponderado
@@ -319,6 +339,13 @@ void setTriangleCompassNeedle(float heading){
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// Variables que no se donde poner
+/////////////////////////////////////////////////////////////////////////////
+
+unsigned long prevMillis = 0;
+const long LCDinterval = 100; // Intervalo de refresco LCD
+
+/////////////////////////////////////////////////////////////////////////////
 // SetUp
 /////////////////////////////////////////////////////////////////////////////
 
@@ -356,7 +383,7 @@ void setup() {
 
 void loop() {
   char text_string[100];
-  M5.update();  // Read the press state of the key.
+  M5.update();
   bmm150_read_mag_data(&dev);
   float head_dir = atan2(dev.data.x - mag_offset.x, dev.data.y - mag_offset.y) * 180.0 / M_PI;
   if (head_dir < 0.0) {
