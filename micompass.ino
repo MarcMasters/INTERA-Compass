@@ -208,7 +208,7 @@ void LCDsetup() {
   int centerX = 160;
   int centerY = 120;
   int radius = 80;
-  uint16_t fillColor = TFT_WHITE;   // Color de relleno del círculo
+  uint16_t fillColor = TFT_BLACK;   // Color de relleno del círculo
 
   M5.Lcd.fillCircle(centerX, centerY, radius, fillColor);
 
@@ -233,23 +233,23 @@ void LCDsetup() {
   M5.Lcd.drawString("O", 55, textY);
 }
 
-void setCompassNeedle(int needleX = 160, int needleY = 120){
-  // Dibujar un círculo en la pantalla
-  int radius = 7;
-  uint16_t fillColor = TFT_RED;   // Color de relleno del círculo
+// void setCompassNeedle(int needleX = 160, int needleY = 120){
+//   // Dibujar un círculo en la pantalla
+//   int radius = 7;
+//   uint16_t fillColor = TFT_RED;   // Color de relleno del círculo
 
-  M5.Lcd.fillCircle(needleX, needleY, radius, fillColor);
-}
+//   M5.Lcd.fillCircle(needleX, needleY, radius, fillColor);
+// }
 
-void initCompassConfig() {
-  img.setColorDepth(1);              // Set bits per pixel for colour.  
-  img.setTextColor(TFT_WHITE);       // Set the font foreground colour (background
-                                     // is. 
-  img.createSprite(320, 240);        // Create a sprite (bitmap) of defined width
-                                     // and height 
-  img.setBitmapColor(TFT_WHITE, 0);  // Set the foreground and background
-                                     // colour. 
-}
+// void initCompassConfig() {
+//   img.setColorDepth(1);              // Set bits per pixel for colour.  
+//   img.setTextColor(TFT_WHITE);       // Set the font foreground colour (background
+//                                      // is. 
+//   img.createSprite(320, 240);        // Create a sprite (bitmap) of defined width
+//                                      // and height 
+//   img.setBitmapColor(TFT_WHITE, 0);  // Set the foreground and background
+//                                      // colour. 
+// }
 
 void setHeadingStr(float heading){
   M5.Lcd.setTextSize(2);
@@ -279,6 +279,67 @@ void setTriangleCompassNeedle(float heading){
 
     // Dibujo:
     M5.Lcd.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_RED);
+}
+
+void drawArrow(float centerH, float centerV){
+  const short size = 8;
+  const short size2 = 3;
+
+  // Coordenadas del triángulo grande
+  int x10 = centerH-size;
+  int y10 = centerV;
+
+  int x20 = centerH+size;
+  int y20 = centerV;
+
+  int x30 = centerH;
+  int y30 = centerV-2*size;
+
+  // Dibujo
+  M5.Lcd.fillTriangle(x10, y10, x20, y20, x30, y30, TFT_BLUE);
+
+  // Coordenadas triángulo pequeño izq.
+  int x11 = x10;
+  int y11 = y10;
+
+  int x21 = centerH;
+  int y21 = y20;
+
+  int x31 = centerH-size-size2;
+  int y31 = centerV+size2+2;
+
+  // Dibujo 
+  M5.Lcd.fillTriangle(x11, y11, x21, y21, x31, y31, TFT_BLUE);
+
+  // Coordenadas triángulo pequeño dcha.
+  int x12 = x20;
+  int y12 = y20;
+
+  int x22 = x21;
+  int y22 = y21;
+
+  int x32 = centerH+size+size2;
+  int y32 = y31;
+
+  // Dibujo
+  M5.Lcd.fillTriangle(x12, y12, x22, y22, x32, y32, TFT_BLUE);
+
+}
+
+void setAdvancedUI(float head_dir){  
+  // Coordenadas del centro de la pantalla
+  float lcdCenterH = M5.Lcd.width()/2;
+  float lcdCenterV = M5.Lcd.height()/2;
+
+  // Dibujar flecha estática
+  drawArrow(lcdCenterH,lcdCenterV);
+
+  // Posicion inicial y final de las lineas de la escala
+
+  // Posicion de los textos de la escala
+
+  // Dibujar lineas
+  //M5.Lcd.drawLine(x0,y0,x1,y1,TFT_WHITE);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -318,7 +379,7 @@ void setup() {
 /////////////////////////////////////////////////////////////////////////////
 
 void loop() {
-  char text_string[100];
+  //char text_string[100];
   M5.update();  // Read the press state of the key.
   bmm150_read_mag_data(&dev);
   float head_dir = atan2(dev.data.x - mag_offset.x, dev.data.y - mag_offset.y) * 180.0 / M_PI;
@@ -359,18 +420,18 @@ void loop() {
 
   // ---------------------------------------------------------------------------------
 
-  img.fillSprite(0);
-  sprintf(text_string, "MAG X: %.2f", dev.data.x);
-  img.drawString(text_string, 10, 20,
-                 4);  // draw string with padding.
-  sprintf(text_string, "MAG Y: %.2f", dev.data.y);
-  img.drawString(text_string, 10, 50, 4);
-  sprintf(text_string, "MAG Z: %.2f", dev.data.z);
-  img.drawString(text_string, 10, 80, 4);
-  sprintf(text_string, "HEAD Angle: %.2f", head_dir);
-  img.drawString(text_string, 10, 110, 4);
-  img.drawCentreString("Press BtnA enter calibrate", 160, 150, 4);
-  img.pushSprite(0, 0);
+  // img.fillSprite(0);
+  // sprintf(text_string, "MAG X: %.2f", dev.data.x);
+  // img.drawString(text_string, 10, 20,
+  //                4);  // draw string with padding.
+  // sprintf(text_string, "MAG Y: %.2f", dev.data.y);
+  // img.drawString(text_string, 10, 50, 4);
+  // sprintf(text_string, "MAG Z: %.2f", dev.data.z);
+  // img.drawString(text_string, 10, 80, 4);
+  // sprintf(text_string, "HEAD Angle: %.2f", head_dir);
+  // img.drawString(text_string, 10, 110, 4);
+  // img.drawCentreString("Press BtnA enter calibrate", 160, 150, 4);
+  // img.pushSprite(0, 0);
 
   if (M5.BtnA.wasPressed()) {
     img.fillSprite(0);
@@ -386,7 +447,8 @@ void loop() {
     // Actualizar la pantalla cada 100ms
     LCDsetup();
     setHeadingStr(head_dir);
-    setTriangleCompassNeedle(head_dir);
+    // setTriangleCompassNeedle(head_dir);
+    setAdvancedUI(head_dir);
   }
 
   delay(10);
