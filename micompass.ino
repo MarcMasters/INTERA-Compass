@@ -201,8 +201,8 @@ float value_average(const circular_buffer *buf) {
 void clearLCD(int centerX, int centerY) {
   M5.begin();
 
-  // Color de fondo
-  M5.Lcd.fillScreen(TFT_BLACK);
+  // Color de fondo (ACTUALIZA TODA LA PANTALLA)
+  //M5.Lcd.fillScreen(TFT_GREENYELLOW);
 
   // Dibujar un círculo en la pantalla
   // int centerX = 160;
@@ -253,10 +253,33 @@ void clearLCD(int centerX, int centerY) {
 
 void setHeadingStr(float heading, int xPos, int yPos){
   M5.Lcd.setTextSize(2);
+  // M5.Lcd.setTextPadding(60);
+  M5.Lcd.setTextDatum(MC_DATUM);
   M5.Lcd.setTextColor(TFT_RED);
-  String heading_str = String(heading);
+  
+  int headingRound = round(heading);
+  String heading_str = String(headingRound)+(char)167;
 
-  M5.Lcd.drawString(pivot_str, xPos, yPos);
+  M5.Lcd.drawString(heading_str, xPos, yPos);
+}
+
+void drawHeading(float head_dir, int xPos, int yPos, int centerH){
+  // Dibujar marco
+  int w = 70; int h = 32;
+  int xFramePos = xPos - w / 2; int yFramePos = yPos - h / 2;
+  M5.Lcd.fillRect(xFramePos, yFramePos, w, h, TFT_WHITE);
+
+  // Dibujar pequeño triángulo
+  int x1 = centerH-5; int x2 = centerH+5; int x3 = centerH;
+  int y1 = yPos+h/2;  int y2 = y1;        int y3 = y1+8;
+  M5.Lcd.fillTriangle(x1,y1,x2,y2,x3,y3,TFT_WHITE);
+
+  // Refrescar numeros
+  w -= 10; h -= 10;
+  xFramePos = xPos - w / 2; yFramePos = yPos - h / 2;
+  M5.Lcd.fillRect(xFramePos, yFramePos, w, h, TFT_BLACK);
+  // Escribir dirección (int [0-360]º)
+  setHeadingStr(head_dir, xPos, yPos);
 }
 
 void setNeedle(float heading){
@@ -285,7 +308,7 @@ void drawArrow(float centerH, float centerV){
   int y30 = centerV-2*size;
 
   // Dibujo
-  M5.Lcd.fillTriangle(x10, y10, x20, y20, x30, y30, TFT_BLUE);
+  M5.Lcd.fillTriangle(x10, y10, x20, y20, x30, y30, TFT_RED);
 
   // Coordenadas triángulo pequeño izq.
   int x11 = x10;
@@ -298,7 +321,7 @@ void drawArrow(float centerH, float centerV){
   int y31 = centerV+size2+2;
 
   // Dibujo 
-  M5.Lcd.fillTriangle(x11, y11, x21, y21, x31, y31, TFT_BLUE);
+  M5.Lcd.fillTriangle(x11, y11, x21, y21, x31, y31, TFT_RED);
 
   // Coordenadas triángulo pequeño dcha.
   int x12 = x20;
@@ -311,7 +334,7 @@ void drawArrow(float centerH, float centerV){
   int y32 = y31;
 
   // Dibujo
-  M5.Lcd.fillTriangle(x12, y12, x22, y22, x32, y32, TFT_BLUE);
+  M5.Lcd.fillTriangle(x12, y12, x22, y22, x32, y32, TFT_RED);
 
 }
 
@@ -320,9 +343,14 @@ void setAdvancedUI(float head_dir){
   float lcdCenterH = M5.Lcd.width()/2;
   float lcdCenterV = M5.Lcd.height()/2;
 
+  // Refrescar píxeles necesarios
   clearLCD(lcdCenterH, lcdCenterV);
 
-  setHeadingStr(head_dir,lcdCenterH,lcdCenterV);
+  // Dibujar dirección con marco
+  int xHead = lcdCenterH; int yHead = 20;
+  drawHeading(head_dir,xHead,yHead,lcdCenterH);
+
+  // Aguja que apunta a la dirección
   setNeedle(head_dir);
 
   // Dibujar flecha estática
@@ -361,7 +389,7 @@ void setup() {
       0,
       0);  // Push the sprite to the TFT at 0, 0.  
     for (;;) {
-      delay(100);  // delay 100ms.  延迟100ms
+      delay(100);  // delay 100ms.
     }
   }
 
