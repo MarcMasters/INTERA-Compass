@@ -87,6 +87,23 @@ void bmm150_offset_load() {  // load the data.
   }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////Menú de suavizado avanzado///////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+Este menú saltará cuando se pulse el botón Aen la pantalla principal:
+
+- Si se pulsa A se cambiará de método de suavizado (buffer circular o ponderado)
+- Si se mantiene A saltará la calibración en infinito
+- Si se pulsa B el factor de suavizado o el tamaño del buffer (depende del método activo) cambiará
+- Si se pulsa C se volverá a la pantalla principal
+*/
+
+//
+// Calibración en infinito
+//
+
 void bmm150_calibrate(uint32_t calibrate_time) {  // bbm150 data calibrate.  
   uint32_t calibrate_timeout = 0;
 
@@ -125,11 +142,18 @@ void bmm150_calibrate(uint32_t calibrate_time) {  // bbm150 data calibrate.
   Serial.printf("z_max: %.2f z_min: %.2f \r\n", mag_max.z, mag_min.z);
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// Buffer circular
-/////////////////////////////////////////////////////////////////////////////
+void invocar_calibracion_infinito(){
+  img.fillSprite(0);
+  img.drawCentreString("Flip + rotate core calibration", 160, 110, 4);
+  img.pushSprite(0, 0);
+  bmm150_calibrate(10000);
+}
 
-#define CIRCULAR_BUFFER_LEN 100
+//
+// Buffer circular
+//
+
+#define CIRCULAR_BUFFER_LEN 50
 
 typedef struct {
   int head;                           // Indice donde se almacena el proximo valor
@@ -137,21 +161,24 @@ typedef struct {
   float values[CIRCULAR_BUFFER_LEN];  // Array de valores del tamaño del buffer establecido
 } circular_buffer;
 
-circular_buffer xBuffer;
-circular_buffer yBuffer;
+circular_buffer buf_x, buf_y, buf_z;;
 
 void value_clear(circular_buffer *buf);
 void value_queue(circular_buffer *buf, float value);
 float value_average(const circular_buffer *buf);
 
+// Estas variables hay que ponerlas en otro lado
 unsigned long prevMillis = 0;
 const long LCDinterval = 100; // Intervalo de refresco LCD
 
+// Limpiar el valor del buffer
 void value_clear(circular_buffer *buf) {
   buf->head = 0;
   buf->tail = 0;
+  memset(buf->values, 0, sizeof(buf->values));
 }
 
+// Añade un valor al buffer circular
 void value_queue(circular_buffer *buf, float value) {
   buf->values[buf->head] = value;  // valor en indice head
 
@@ -164,34 +191,44 @@ void value_queue(circular_buffer *buf, float value) {
   }
 }
 
+// Calcula el promedio de los valores almacenados en el buffer
 float value_average(const circular_buffer *buf) {
-  int valuesCount = 0;
-  float sum = 0.0f;
-
-  // El buffer aun no ha dado la vuelta (hay valores vacios) (head >= tail)
-  if (buf->head >= buf->tail) {
-    // Se almacena desde tail hasta head
-    for (int i = buf->tail; i < buf->head; i++) {
-      sum += buf->values[i];
-      valuesCount++;
+    float sum = 0;
+    int count = 0;
+    int i = buf->tail;
+    while (i != buf->head) {
+        sum += buf->values[i];
+        count++;
+        i = (i + 1) % CIRCULAR_BUFFER_LEN;
     }
+    return (count > 0) ? sum / count : 0;
+}
 
+//
+// Suavizado ponderado
+//
 
-  } else {
-    // El buffer ha dado la vuelta (head < tail)
-    // Se almacena desde tail hasta el final del buffer
-    for (int i = buf->tail; i < CIRCULAR_BUFFER_LEN; i++) {
-      sum += buf->values[i];
-      valuesCount++;
-    }
-    // Se almacena desde el principio del buffer hasta head
-    for (int i = 0; i < buf->head; i++) {
-      sum += buf->values[i];
-      valuesCount++;
-    }
+// Funcion para suavizar un valor
+float suavizar_valor(float valor_actual, float valor_anterior, float alpha){
+  return  alpha * valor_anterior + (1 - alpha) * valor_actual;
+}
+
+// Funcion para suavizar un array
+void suavizar_arr(float* arr_actual, float* arr_anterior, int len, float alpha){
+  for (int i = 0; i < len; i++){
+    arr_actual[i] = suavizar_valor(arr_actual[i],arr_anterior[i],alpha);
+    arr_anterior[i] = arr_actual[i];
   }
-  // Devuelve la media si se ha contabilizado algun almacenamiento (si no, 0)
-  return valuesCount > 0 ? (sum / valuesCount) : 0.0f;
+} 
+
+// Funcion para cambiar el factor de suavizado
+float cambiar_factor_suavizado(float alpha){
+  if ((alpha - 0.1) < 0){
+    alpha = 0.9;
+  }else{
+    alpha -= 0.1;
+  }
+  return alpha;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -344,13 +381,16 @@ void loop() {
   //Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", dev.data.x,
   //              dev.data.y, dev.data.z);
 
-  value_queue(&xBuffer, dev.data.x);
-  value_queue(&yBuffer, dev.data.y);
+  value_queue(&buf_x, dev.data.x);
+  value_queue(&buf_y, dev.data.y);
+  value_queue(&buf_y, dev.data.z);
 
-  float xMean = value_average(&xBuffer);
-  float yMean = value_average(&yBuffer);
+  float xMean = value_average(&buf_x);
+  float yMean = value_average(&buf_y);
+  float zMean = value_average(&buf_z);
 
-  Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", xMean, yMean, dev.data.z);
+
+  Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", xMean, yMean, zMean);
 
   Serial.printf("MID X : %.2f \nMID Y : %.2f \nMID Z : %.2f \n",
                 mag_offset.x, mag_offset.y, mag_offset.z);
@@ -373,10 +413,7 @@ void loop() {
   img.pushSprite(0, 0);
 
   if (M5.BtnA.wasPressed()) {
-    img.fillSprite(0);
-    img.drawCentreString("Flip + rotate core calibration", 160, 110, 4);
-    img.pushSprite(0, 0);
-    bmm150_calibrate(10000);
+    invocar_calibracion_infinito();
   }
 
   unsigned long currMillis = millis();
