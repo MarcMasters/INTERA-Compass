@@ -126,6 +126,22 @@ void bmm150_calibrate(uint32_t calibrate_time) {  // bbm150 data calibrate.
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// Funcion para guardar la direccion actual
+/////////////////////////////////////////////////////////////////////////////
+
+String currentDirection = "";
+
+void save_direction(String direction) {
+    // Se almacena la direccion actual
+    currentDirection = direction;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Funcion para cambiar de interfaz y decidir si se trata de una direccion deseada o no
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
 // Buffer circular
 /////////////////////////////////////////////////////////////////////////////
 
@@ -377,6 +393,10 @@ void loop() {
     img.drawCentreString("Flip + rotate core calibration", 160, 110, 4);
     img.pushSprite(0, 0);
     bmm150_calibrate(10000);
+  }
+
+  if (M5.BtnB.wasPressed()) {
+    save_direction(rumbo);
   }
 
   unsigned long currMillis = millis();
