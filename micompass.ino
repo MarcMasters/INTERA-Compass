@@ -198,39 +198,39 @@ float value_average(const circular_buffer *buf) {
 // Interfaz
 /////////////////////////////////////////////////////////////////////////////
 
-void LCDsetup() {
+void clearLCD(int centerX, int centerY) {
   M5.begin();
 
   // Color de fondo
   M5.Lcd.fillScreen(TFT_BLACK);
 
   // Dibujar un círculo en la pantalla
-  int centerX = 160;
-  int centerY = 120;
+  // int centerX = 160;
+  // int centerY = 120;
   int radius = 80;
   uint16_t fillColor = TFT_BLACK;   // Color de relleno del círculo
 
   M5.Lcd.fillCircle(centerX, centerY, radius, fillColor);
 
   // El texto que queremos centrar
-  String textoN = "N";
-  String textoE = "E";
-  M5.Lcd.setTextSize(3);
-  M5.Lcd.setTextColor(TFT_GREEN);
+  // String textoN = "N";
+  // String textoE = "E";
+  // M5.Lcd.setTextSize(3);
+  // M5.Lcd.setTextColor(TFT_GREEN);
 
-  // Calcular la posición para centrar en X
-  int screenWidth = M5.Lcd.width();
-  int textX = (screenWidth - 6) / 2; // Coordenada X centrada (10 ancho estimado)
+  // // Calcular la posición para centrar en X
+  // int screenWidth = M5.Lcd.width();
+  // int textX = (screenWidth - 6) / 2; // Coordenada X centrada (10 ancho estimado)
 
-  // Calcular la posición para centrar en Y
-  int screenHeight = M5.Lcd.height();
-  int textY = (screenHeight - 18) / 2; // Coordenada Y centrada (18 altura estimada)
+  // // Calcular la posición para centrar en Y
+  // int screenHeight = M5.Lcd.height();
+  // int textY = (screenHeight - 18) / 2; // Coordenada Y centrada (18 altura estimada)
   
-  // Dibujar el texto centrado
-  M5.Lcd.drawString(textoN, textX, 10);
-  M5.Lcd.drawString("S", textX, 210);
-  M5.Lcd.drawString(textoE, 250, textY);
-  M5.Lcd.drawString("O", 55, textY);
+  // // Dibujar el texto centrado
+  // M5.Lcd.drawString(textoN, textX, 10);
+  // M5.Lcd.drawString("S", textX, 210);
+  // M5.Lcd.drawString(textoE, 250, textY);
+  // M5.Lcd.drawString("O", 55, textY);
 }
 
 // void setCompassNeedle(int needleX = 160, int needleY = 120){
@@ -251,16 +251,15 @@ void LCDsetup() {
 //                                      // colour. 
 // }
 
-void setHeadingStr(float heading){
+void setHeadingStr(float heading, int xPos, int yPos){
   M5.Lcd.setTextSize(2);
   M5.Lcd.setTextColor(TFT_RED);
   String heading_str = String(heading);
-  M5.Lcd.drawString(heading_str, 15, 210);
+
+  M5.Lcd.drawString(pivot_str, xPos, yPos);
 }
 
-void setTriangleCompassNeedle(float heading){
-    // Punta del triangulo:
-
+void setNeedle(float heading){
     // Cos y Sin estan invertidos por adaptacion al sistema de referencia de una brujula
     // (0 arriba y 180 abajo, a diferencia del sistema trigonométrico de 0 derecha y 180 izquierda)
     
@@ -268,17 +267,7 @@ void setTriangleCompassNeedle(float heading){
     float x1 = M5.Lcd.width()/2 + sin(heading * (M_PI / 180.0)) * (80-10);
     // M5.Height/2 - cos(heading(rad)) * (circle_radius-offset)
     float y1 = M5.Lcd.height()/2 - cos(heading * (M_PI / 180.0)) * (80-10);
-
-    // Segundo vértice (desfasado -90º):
-    float x2 = M5.Lcd.width()/2 + sin((heading - 90) * (M_PI / 180.0)) * (15);
-    float y2 = M5.Lcd.height()/2 - cos((heading - 90) * (M_PI / 180.0)) * (15);
-
-    // Tercer vértice (desfasado +90º):
-    float x3 = M5.Lcd.width()/2 + sin((heading + 90) * (M_PI / 180.0)) * (15);
-    float y3 = M5.Lcd.height()/2 - cos((heading + 90) * (M_PI / 180.0)) * (15);
-
-    // Dibujo:
-    M5.Lcd.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_RED);
+    M5.Lcd.fillCircle(x1, y1, 5, TFT_WHITE);
 }
 
 void drawArrow(float centerH, float centerV){
@@ -326,10 +315,15 @@ void drawArrow(float centerH, float centerV){
 
 }
 
-void setAdvancedUI(float head_dir){  
+void setAdvancedUI(float head_dir){
   // Coordenadas del centro de la pantalla
   float lcdCenterH = M5.Lcd.width()/2;
   float lcdCenterV = M5.Lcd.height()/2;
+
+  clearLCD(lcdCenterH, lcdCenterV);
+
+  setHeadingStr(head_dir,lcdCenterH,lcdCenterV);
+  setNeedle(head_dir);
 
   // Dibujar flecha estática
   drawArrow(lcdCenterH,lcdCenterV);
@@ -445,10 +439,7 @@ void loop() {
     prevMillis = currMillis;
 
     // Actualizar la pantalla cada 100ms
-    LCDsetup();
-    setHeadingStr(head_dir);
-    // setTriangleCompassNeedle(head_dir);
-    setAdvancedUI(head_dir);
+    setAdvancedUI(head_dir);    
   }
 
   delay(10);
