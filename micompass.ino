@@ -126,20 +126,27 @@ void bmm150_calibrate(uint32_t calibrate_time) {  // bbm150 data calibrate.
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Funcion para guardar la direccion actual
+// Funciones para guardar la direccion actual
 /////////////////////////////////////////////////////////////////////////////
 
 String currentDirection = "";
+String desiredDirection = "";
+String undesiredDirection = "";
 
 void save_direction(String direction) {
     // Se almacena la direccion actual
     currentDirection = direction;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// Funcion para cambiar de interfaz y decidir si se trata de una direccion deseada o no
-/////////////////////////////////////////////////////////////////////////////
+void save_desiredDirection(String direction) {
+    // Se almacena la direccion actual
+    desiredDirection = direction;
+}
 
+void save_undesiredDirection(String direction) {
+    // Se almacena la direccion actual
+    undesiredDirection = direction;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Buffer circular
@@ -395,8 +402,22 @@ void loop() {
     bmm150_calibrate(10000);
   }
 
-  if (M5.BtnB.wasPressed()) {
+  if (M5.BtnC.wasPressed()) {
     save_direction(rumbo);
+
+    //Rectangulo para preguntar donde guardar la direccion
+    img.fillRoundRect(10, 100, 300, 50, 5, TFT_GREEN);
+    img.drawRoundRect(10, 100, 300, 50, 5, TFT_GREEN);
+    img.drawCentreString("¿Deseas ir en esta dirección?", 10 + 300 / 2, 100 + 50 / 2 - 8, 2);
+    img.pushSprite(0, 0);
+
+    //Direccion deseada o no deseada
+    if (M5.BtnA.wasPressed()) {
+      save_desiredDirection(rumbo);
+    }
+    if (M5.BtnC.wasPressed()) {
+      save_undesiredDirection(rumbo);
+    }
   }
 
   unsigned long currMillis = millis();
