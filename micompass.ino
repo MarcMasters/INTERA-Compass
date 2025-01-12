@@ -243,11 +243,10 @@ void clearLCD(int centerX, int centerY) {
 //                                      // colour. 
 // }
 
-void setHeadingStr(float heading, int xPos, int yPos){
+void setHeadingStr(float heading, int xPos, int yPos, uint16_t color_txt){
   M5.Lcd.setTextSize(2);
-  // M5.Lcd.setTextPadding(60);
   M5.Lcd.setTextDatum(MC_DATUM);
-  M5.Lcd.setTextColor(TFT_YELLOW);
+  M5.Lcd.setTextColor(color_txt);
   
   int headingRound = round(heading);
   String heading_str = String(headingRound)+(char)167;
@@ -255,7 +254,7 @@ void setHeadingStr(float heading, int xPos, int yPos){
   M5.Lcd.drawString(heading_str, xPos, yPos);
 }
 
-void drawHeading(float head_dir, int xPos, int yPos, int centerH){
+void drawHeading(float head_dir, int xPos, int yPos, int centerH, int16_t textColor){
   // Dibujar marco
   int w = 70; int h = 32;
   int xFramePos = xPos - w / 2; int yFramePos = yPos - h / 2;
@@ -271,7 +270,7 @@ void drawHeading(float head_dir, int xPos, int yPos, int centerH){
   xFramePos = xPos - w / 2; yFramePos = yPos - h / 2;
   M5.Lcd.fillRoundRect(xFramePos, yFramePos, w, h, 5, TFT_BLACK);
   // Escribir dirección (int [0-360]º)
-  setHeadingStr(head_dir, xPos, yPos);
+  setHeadingStr(head_dir, xPos, yPos, textColor);
 }
 
 void setNeedle(float heading, int centerV, int centerH){
@@ -332,9 +331,18 @@ void drawArrow(int centerH, int centerV){
 
 }
 
-void drawLinesAndIndicators(int centerH, int centerV){
+void rotatePixels(float x, float y, float cx, float cy, float rotationAngle, float rotatedCoords[]){
+  rotationAngle = -rotationAngle;
+  rotatedCoords[0] = cos(rotationAngle * (M_PI / 180.0)) * (x-cx) - sin(rotationAngle * (M_PI / 180.0)) * (y-cy) + cx;
+  rotatedCoords[1] = sin(rotationAngle * (M_PI / 180.0)) * (x-cx) + cos(rotationAngle * (M_PI / 180.0)) * (y-cy) + cy;
+};
+
+void drawLinesAndIndicators(int centerH, int centerV, float head_dir){
   // Offset en Y
   centerV += 20;
+
+  // Array que almacena las coordenadas x,y rotadas para su uso
+  float rotatedCoords[2];
 
   // Radio exterior y líneas pequeñas
   int r1 = 95; int r2 = 88;
@@ -346,8 +354,18 @@ void drawLinesAndIndicators(int centerH, int centerV){
 
     float x2 = centerH + sin(i * (M_PI / 180.0)) * r2;
     float y2 = centerV - cos(i * (M_PI / 180.0)) * r2;
-  
-    M5.Lcd.drawLine(x1,y1,x2,y2,TFT_WHITE);
+
+    rotatePixels(x1,y1, centerH, centerV, head_dir, rotatedCoords);
+    float x1Rot = rotatedCoords[0]; float y1Rot = rotatedCoords[1];
+
+    rotatePixels(x2,y2, centerH, centerV, head_dir, rotatedCoords);
+    float x2Rot = rotatedCoords[0]; float y2Rot = rotatedCoords[1];
+
+    // String a = String(x1);
+    // String b = String(x1Rot);
+    // Serial.printf("x1: %.2f\n >>> x1Rot: %.2f \n", x1, x1Rot);
+
+    M5.Lcd.drawLine(x1Rot,y1Rot,x2Rot,y2Rot,TFT_WHITE);
   }
 
   // Líneas medianas
@@ -358,8 +376,14 @@ void drawLinesAndIndicators(int centerH, int centerV){
 
     float x3 = centerH + sin(i * (M_PI / 180.0)) * r3;
     float y3 = centerV - cos(i * (M_PI / 180.0)) * r3;
+
+    rotatePixels(x1,y1, centerH, centerV, head_dir, rotatedCoords);
+    float x1Rot = rotatedCoords[0]; float y1Rot = rotatedCoords[1];
+
+    rotatePixels(x3,y3, centerH, centerV, head_dir, rotatedCoords);
+    float x3Rot = rotatedCoords[0]; float y3Rot = rotatedCoords[1];
   
-    M5.Lcd.drawLine(x1,y1,x3,y3,TFT_WHITE);
+    M5.Lcd.drawLine(x1Rot,y1Rot,x3Rot,y3Rot,TFT_WHITE);
   }
 
   // Líneas grandes
@@ -371,7 +395,13 @@ void drawLinesAndIndicators(int centerH, int centerV){
     float x4 = centerH + sin(i * (M_PI / 180.0)) * r4;
     float y4 = centerV - cos(i * (M_PI / 180.0)) * r4;
   
-    M5.Lcd.drawLine(x1,y1,x4,y4,TFT_WHITE);
+    rotatePixels(x1,y1, centerH, centerV, head_dir, rotatedCoords);
+    float x1Rot = rotatedCoords[0]; float y1Rot = rotatedCoords[1];
+
+    rotatePixels(x4,y4, centerH, centerV, head_dir, rotatedCoords);
+    float x4Rot = rotatedCoords[0]; float y4Rot = rotatedCoords[1];
+
+    M5.Lcd.drawLine(x1Rot,y1Rot,x4Rot,y4Rot,TFT_WHITE);
   }
 
   // NSEO y números
@@ -427,8 +457,11 @@ void drawLinesAndIndicators(int centerH, int centerV){
         break;
     }
     
+    rotatePixels(x5,y5, centerH, centerV, head_dir, rotatedCoords);
+    float x5Rot = rotatedCoords[0]; float y5Rot = rotatedCoords[1];
+
     M5.Lcd.setTextColor(TFT_PINK);
-    M5.Lcd.drawString(indicator,x5,y5,2);
+    M5.Lcd.drawString(indicator,x5Rot,y5Rot,2);
     // M5.Lcd.drawNumber(i/10,x5,y5);
   }
 
@@ -440,7 +473,7 @@ void drawLinesAndIndicators(int centerH, int centerV){
   // M5.Lcd.drawCircle(centerH,centerV,r5,TFT_PURPLE);
 }
 
-void setAdvancedUI(float head_dir){
+void setAdvancedUI(float head_dir, uint16_t textColor){
   // Coordenadas del centro de la pantalla
   float lcdCenterH = M5.Lcd.width()/2;
   float lcdCenterV = M5.Lcd.height()/2;
@@ -449,13 +482,13 @@ void setAdvancedUI(float head_dir){
   //clearLCD(lcdCenterH, lcdCenterV);
 
   // Refrescar píxeles referentes a la brújula
-  M5.Lcd.fillCircle(lcdCenterH, lcdCenterV+20, 96, TFT_BLACK);
+  M5.Lcd.fillCircle(lcdCenterH, lcdCenterV+20, 97, TFT_BLACK);
 
   // Dibujar líneas de dirección y textos de dirección
-  drawLinesAndIndicators(lcdCenterH, lcdCenterV);
+  drawLinesAndIndicators(lcdCenterH, lcdCenterV, head_dir);
 
   // Dibujar dirección con marco
-  drawHeading(head_dir,lcdCenterH,20,lcdCenterH);
+  drawHeading(head_dir,lcdCenterH,20,lcdCenterH,textColor);
 
   // Aguja que apunta a la dirección
   //setNeedle(head_dir, lcdCenterV, lcdCenterH);
@@ -475,7 +508,7 @@ void setup() {
   Wire.begin(
     21, 22,
     400000UL
-  );  // Set the frequency of the SDA SCL. 
+  );  // Set the frequency of the SDA SCL.
 
   //LCDsetup();
 
@@ -567,7 +600,7 @@ void loop() {
     prevMillis = currMillis;
 
     // Actualizar la pantalla cada 100ms
-    setAdvancedUI(head_dir);    
+    setAdvancedUI(head_dir, TFT_YELLOW);
   }
 
   delay(10);
