@@ -247,7 +247,7 @@ void setHeadingStr(float heading, int xPos, int yPos){
   M5.Lcd.setTextSize(2);
   // M5.Lcd.setTextPadding(60);
   M5.Lcd.setTextDatum(MC_DATUM);
-  M5.Lcd.setTextColor(TFT_RED);
+  M5.Lcd.setTextColor(TFT_YELLOW);
   
   int headingRound = round(heading);
   String heading_str = String(headingRound)+(char)167;
@@ -259,7 +259,7 @@ void drawHeading(float head_dir, int xPos, int yPos, int centerH){
   // Dibujar marco
   int w = 70; int h = 32;
   int xFramePos = xPos - w / 2; int yFramePos = yPos - h / 2;
-  M5.Lcd.fillRect(xFramePos, yFramePos, w, h, TFT_WHITE);
+  M5.Lcd.fillRoundRect(xFramePos, yFramePos, w, h, 7, TFT_WHITE);
 
   // Dibujar pequeño triángulo
   int x1 = centerH-5; int x2 = centerH+5; int x3 = centerH;
@@ -269,7 +269,7 @@ void drawHeading(float head_dir, int xPos, int yPos, int centerH){
   // Refrescar numeros
   w -= 10; h -= 10;
   xFramePos = xPos - w / 2; yFramePos = yPos - h / 2;
-  M5.Lcd.fillRect(xFramePos, yFramePos, w, h, TFT_BLACK);
+  M5.Lcd.fillRoundRect(xFramePos, yFramePos, w, h, 5, TFT_BLACK);
   // Escribir dirección (int [0-360]º)
   setHeadingStr(head_dir, xPos, yPos);
 }
@@ -302,7 +302,7 @@ void drawArrow(int centerH, int centerV){
   int y30 = centerV-2*size;
 
   // Dibujo
-  M5.Lcd.fillTriangle(x10, y10, x20, y20, x30, y30, TFT_RED);
+  M5.Lcd.fillTriangle(x10, y10, x20, y20, x30, y30, TFT_YELLOW);
 
   // Coordenadas triángulo pequeño izq.
   int x11 = x10;
@@ -315,7 +315,7 @@ void drawArrow(int centerH, int centerV){
   int y31 = centerV+size2+2;
 
   // Dibujo 
-  M5.Lcd.fillTriangle(x11, y11, x21, y21, x31, y31, TFT_RED);
+  M5.Lcd.fillTriangle(x11, y11, x21, y21, x31, y31, TFT_YELLOW);
 
   // Coordenadas triángulo pequeño dcha.
   int x12 = x20;
@@ -328,16 +328,13 @@ void drawArrow(int centerH, int centerV){
   int y32 = y31;
 
   // Dibujo
-  M5.Lcd.fillTriangle(x12, y12, x22, y22, x32, y32, TFT_RED);
+  M5.Lcd.fillTriangle(x12, y12, x22, y22, x32, y32, TFT_YELLOW);
 
 }
 
 void drawLinesAndIndicators(int centerH, int centerV){
   // Offset en Y
   centerV += 20;
-
-  // Refrescar píxeles referentes a la brújula
-  M5.Lcd.fillCircle(centerH, centerV, 96, TFT_BLACK);
 
   // Radio exterior y líneas pequeñas
   int r1 = 95; int r2 = 88;
@@ -378,32 +375,60 @@ void drawLinesAndIndicators(int centerH, int centerV){
   }
 
   // NSEO y números
-  int r5 = 62; String i_str;
+  int r5 = 60; String indicator;
   for (int i=0; i<360; i+=30){
     float x5 = centerH + sin(i * (M_PI / 180.0)) * r5;
     float y5 = centerV - cos(i * (M_PI / 180.0)) * r5;
 
+    M5.Lcd.setTextSize(1);
     switch (i) {
       case 0:
-        i_str = "N";
+        M5.Lcd.setTextSize(2);
+        indicator = "N";
+        break;
+      case 30:
+        indicator = "NNE";
+        break;
+      case 60:
+        indicator = "ENE";
         break;
       case 90:
-        i_str = "E";
-        break;    
+        M5.Lcd.setTextSize(2);
+        indicator = "E";
+        break;
+      case 120:
+        indicator = "ESE";
+        break;
+      case 150:
+        indicator = "SSE";
+        break;
       case 180:
-        i_str = "S";
+        M5.Lcd.setTextSize(2);
+        indicator = "S";
+        break;
+      case 210:
+        indicator = "SSO";
+        break;
+      case 240:
+        indicator = "OSO";
         break;
       case 270:
-        i_str = "O";
-        break;     
+        M5.Lcd.setTextSize(2);
+        indicator = "O";
+        break;
+      case 300:
+        indicator = "ONO";
+        break;
+      case 330:
+        indicator = "NNO";
+        break;
       default:
-        i_str = String(i/10);
+        indicator = String(i/10);
         break;
     }
     
-    M5.Lcd.setTextSize(1);
     M5.Lcd.setTextColor(TFT_PINK);
-    M5.Lcd.drawString(i_str,x5,y5,2);
+    M5.Lcd.drawString(indicator,x5,y5,2);
     // M5.Lcd.drawNumber(i/10,x5,y5);
   }
 
@@ -423,17 +448,20 @@ void setAdvancedUI(float head_dir){
   // Refrescar píxeles necesarios
   //clearLCD(lcdCenterH, lcdCenterV);
 
+  // Refrescar píxeles referentes a la brújula
+  M5.Lcd.fillCircle(lcdCenterH, lcdCenterV+20, 96, TFT_BLACK);
+
+  // Dibujar líneas de dirección y textos de dirección
+  drawLinesAndIndicators(lcdCenterH, lcdCenterV);
+
   // Dibujar dirección con marco
   drawHeading(head_dir,lcdCenterH,20,lcdCenterH);
 
   // Aguja que apunta a la dirección
-  setNeedle(head_dir, lcdCenterV, lcdCenterH);
+  //setNeedle(head_dir, lcdCenterV, lcdCenterH);
 
   // Dibujar flecha estática
   drawArrow(lcdCenterH,lcdCenterV);
-
-  // Dibujar líneas de dirección y textos de dirección
-  drawLinesAndIndicators(lcdCenterH, lcdCenterV);
 }
 
 /////////////////////////////////////////////////////////////////////////////
