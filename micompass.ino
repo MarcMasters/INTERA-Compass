@@ -469,6 +469,14 @@ void loop() {
     }
   }
 
+  if !(String desiredDirection == ""){
+    if rUclose(rumbo,desiredDirection){M5.Speaker.tone(661, 1000);}
+  }
+
+  if !(String undesiredDirection == ""){
+    if rUclose(rumbo,undesiredDirection){M5.Speaker.tone(440, 1000);}
+  }
+
   unsigned long currMillis = millis();
   if (currMillis - prevMillis >= LCDinterval) {
     prevMillis = currMillis;
