@@ -183,30 +183,6 @@ bool rUclose(String direction, String savedDirection, int proximityRange = 30) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Funcion para que suene un pitido dada la proximidad
-/////////////////////////////////////////////////////////////////////////////
-
-bool pitidoEmitido = false
-
-void pitiditos(){
-  while (pitidoEmitido == false){
-      if (desiredDirection != ""){
-        if (rUclose(rumbo,desiredDirection)){
-          M5.Speaker.tone(661, 1000);
-          pitidoEmitido = true;
-          }
-        }
-
-      if (undesiredDirection != ""){
-        if (rUclose(rumbo,undesiredDirection)){
-          M5.Speaker.tone(440, 1000);
-          pitidoEmitido = true;
-          }
-      }
-  }
-}
-
-/////////////////////////////////////////////////////////////////////////////
 // Buffer circular
 /////////////////////////////////////////////////////////////////////////////
 
@@ -493,7 +469,13 @@ void loop() {
     }
   }
 
-  pitiditos();
+  if (desiredDirection != ""){
+    if (rUclose(rumbo,desiredDirection)){M5.Speaker.tone(661, 1000);}
+  }
+
+  if (undesiredDirection != ""){
+    if (rUclose(rumbo,undesiredDirection)){M5.Speaker.tone(440, 1000);}
+  }
 
   unsigned long currMillis = millis();
   if (currMillis - prevMillis >= LCDinterval) {
