@@ -407,10 +407,10 @@ void loop() {
     Serial.printf("Direccion actual guardada");
 
     //Rectangulo para preguntar donde guardar la direccion
-    img.fillRoundRect(10, 100, 300, 50, 5, TFT_GREEN);
-    img.drawRoundRect(10, 100, 300, 50, 5, TFT_GREEN);
-    img.drawCentreString("¿Deseas ir en esta dirección?", 10 + 300 / 2, 100 + 50 / 2 - 8, 2);
-    img.pushSprite(0, 0);
+    M5.Lcd.fillRoundRect(10, 100, 300, 50, 5, TFT_GREEN);
+    M5.Lcd.drawRoundRect(10, 100, 300, 50, 5, TFT_WHITE);
+    M5.Lcd.setTextColor(TFT_WHITE, TFT_GREEN);
+    M5.Lcd.drawCentreString("¿Deseas ir en esta dirección?", 10 + 300 / 2, 100 + 50 / 2 - 8, 1);
 
     bool decisionTaken = false;
 
