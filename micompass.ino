@@ -149,6 +149,40 @@ void save_undesiredDirection(String direction) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// Funcion para detectar la proximidad del usuario a las direcciones
+/////////////////////////////////////////////////////////////////////////////
+
+bool rUclose(String direction, String savedDirection, int proximityRange = 30) {
+    //Se calcula un rango de proximidad en base a la direccion guardada
+    //No obstante, primero debemos pasar de string a grados, inicializo las variables
+    int dirDegrees = 0;
+    int savedDegrees = 0;
+
+    //Convierto direccion en grados
+    if (direction == "NORTE"){dirDegrees = 0;}
+    else if (direction == "ESTE"){dirDegrees = 90;}
+    else if (direction == "SUR"){dirDegrees = 180;}
+    else if (direction == "OESTE"){dirDegrees = 270;}
+
+    if (savedDirection == "NORTE"){savedDegrees = 0;}
+    else if (savedDirection == "ESTE"){savedDegrees = 90;}
+    else if (savedDirection == "SUR"){savedDegrees = 180;}
+    else if (savedDirection == "OESTE"){savedDegrees = 270;}
+
+    // Calculo rango de proximidad
+    int lowerBound = (savedDegrees - proximityRange + 360) % 360;
+    int upperBound = (savedDegrees + proximityRange) % 360;
+
+    //A continuacion, se comprueba si esta dentro del rango
+    if (lowerBound < upperBound){
+      return (dirDegrees >= lowerBound && dirDegrees <= upperBound);
+    }
+    else{
+      return (dirDegrees >= lowerBound || dirDegrees <= upperBound); // Caso de cruce por 0° (ej. 330° a 30°)
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // Buffer circular
 /////////////////////////////////////////////////////////////////////////////
 
@@ -309,6 +343,7 @@ void setTriangleCompassNeedle(float heading){
 /////////////////////////////////////////////////////////////////////////////
 
 void setup() {
+  M5.Speaker.begin();
   M5.begin(true, false, true, false);  // Init M5Core(Initialize LCD, serial port). 
                                        // M5Core
   M5.Power.begin();                    // Init Power module. 
