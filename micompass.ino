@@ -186,17 +186,6 @@ public:
         }
     }
 
-    // Método para quitar el valor más viejo (No creo que lo use pero por si acaso)
-    float pop() {
-        if (size == 0) {
-            return NULL;
-        }
-        float value = values[tail];
-        tail = (tail + 1) % length;    // Avanza el índice circular
-        size--;                        // Reduce el tamaño usado
-        return value;
-    }
-
     // Obtener el número de elementos almacenados
     int elementos() const {
         return size;
@@ -260,34 +249,24 @@ float cambiar_factor_suavizado(float alpha){
 // Gestión del suavizado
 //
 
-void metodo_buffer(bool& ponderado, int len, CircularBuffer*& buffer1, CircularBuffer*& buffer2, CircularBuffer*& buffer3){
+void metodo_buffer(bool& ponderado, int len, CircularBuffer& buffer1, CircularBuffer& buffer2, CircularBuffer& buffer3){
 
   ponderado = false;
 
-  // Liberar memoria de buffers existentes (si ya estaban asignados)
-  if (buffer1) delete buffer1;
-  if (buffer2) delete buffer2;
-  if (buffer3) delete buffer3;
-
-  // Crear nuevos buffers circulares con el tamaño especificado
-  buffer1 = new CircularBuffer(len);
-  buffer2 = new CircularBuffer(len);
-  buffer3 = new CircularBuffer(len);
+  // Inicializar buffers con el tamaño especificado
+  buffer1 =  CircularBuffer(len);
+  buffer2 =  CircularBuffer(len);
+  buffer3 =  CircularBuffer(len);
 }
 
-void metodo_ponderado(bool& ponderado, CircularBuffer* buffer1, CircularBuffer* buffer2, CircularBuffer* buffer3){
+void metodo_ponderado(bool& ponderado, CircularBuffer& buffer1, CircularBuffer& buffer2, CircularBuffer& buffer3){
 
   ponderado = true;
   
-  // Liberamos el espacio que consumian los buffers y los dejamos como nulos
-  delete buffer1;
-  buffer1 = nullptr;
-
-  delete buffer2;
-  buffer2 = nullptr;
-
-  delete buffer3;
-  buffer3 = nullptr;
+  // Reiniciar los buffers con la longitud mínima permitida para que ocupen poco
+  buffer1 = CircularBuffer(1);
+  buffer2 = CircularBuffer(1);
+  buffer3 = CircularBuffer(1);
 }
 
 /////////////////////////////////////////////////////////////////////////////
