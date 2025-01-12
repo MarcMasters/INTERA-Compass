@@ -89,17 +89,8 @@ void bmm150_offset_load() {  // load the data.
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////Menú de suavizado avanzado///////////////////////////////////
+//                                         Calibración                                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*
-Este menú saltará cuando se pulse el botón Aen la pantalla principal:
-
-- Si se pulsa A se cambiará de método de suavizado (buffer circular o ponderado)
-- Si se mantiene A saltará la calibración en infinito
-- Si se pulsa B el factor de suavizado o el tamaño del buffer (depende del método activo) cambiará
-- Si se pulsa C se volverá a la pantalla principal
-*/
 
 //
 // Calibración en infinito
@@ -154,9 +145,16 @@ void invocar_calibracion_infinito(){
 // Buffer circular
 //
 
+/*
+G___S____:
+Se me ha recomendado que el buffer circular se encapsule en una clase por comodidad
+ya que se va a tener que crear, destruir y modificar su longitud según le apetezca
+al usuario. Veamos si sale bien
+*/
+
 class CircularBuffer {
 private:
-    float* values;  // Puntero al array dinámico
+    float* values;  // Puntero a array dinámico
     int head;       // Índice donde se almacenará el próximo valor
     int tail;       // Índice del valor más viejo
     int length;     // Tamaño del buffer
@@ -168,54 +166,52 @@ public:
         if (len <= 0) {
             throw std::invalid_argument("El tamaño del buffer debe ser mayor a 0");
         }
-        values = new float[len]; // Reserva memoria dinámica
+        values = new float[len];         // Reserva memoria dinámica
     }
 
-    // Destructor: Libera la memoria reservada
+    // Destructor: Libera la memoria reservada. IMPORTANTE
     ~CircularBuffer() {
         delete[] values;
     }
 
     // Método para agregar un valor al buffer
-    void push(float value) {
-        values[head] = value; // Agrega el valor en la posición `head`
-        head = (head + 1) % length; // Avanza el índice circular
+    void nuevoValor(float value) {
+        values[head] = value;
+        head = (head + 1) % length;
 
-        if (size == length) {
-            // Si el buffer está lleno, mueve el `tail` para sobrescribir el más viejo
-            tail = (tail + 1) % length;
+        if (size == length) {                 
+            tail = (tail + 1) % length; // Si el buffer está lleno, mueve la cola para sobrescribir el más viejo
         } else {
-            size++; // Incrementa el tamaño usado del buffer
+            size++;                     // Indica que hay un elemento más
         }
     }
 
-    // Método para obtener el valor más viejo (FIFO)
+    // Método para quitar el valor más viejo (No creo que lo use pero por si acaso)
     float pop() {
         if (size == 0) {
             return NULL;
         }
         float value = values[tail];
-        tail = (tail + 1) % length; // Avanza el índice circular
-        size--; // Reduce el tamaño usado
+        tail = (tail + 1) % length;    // Avanza el índice circular
+        size--;                        // Reduce el tamaño usado
         return value;
     }
 
-    // Método para obtener el número de elementos almacenados
-    int current_size() const {
+    // Obtener el número de elementos almacenados
+    int elementos() const {
         return size;
     }
 
-    // Método para obtener el tamaño máximo del buffer
-    int max_size() const {
+    // Obtener la longitud del buffer
+    int longitud() const {
         return length;
     }
 
-    // Método para calcular la media de los valores del buffer
+    // Media de los valores del buffer
     float media(){
       if (size == 0){
         return 0;
       }
-
       float sum = 0;
       for (int i = 0, indice = tail; i < size; i++, indice = (indice + 1)%length){
         sum += values[indice];
@@ -223,6 +219,16 @@ public:
       return sum / size;
     }
 };
+
+void suavizado_bufferCircular_array(CircularBuffer& buffer1, CircularBuffer& buffer2, CircularBuffer& buffer3, float* arr_valores){
+  buffer1.nuevoValor(arr_valores[0]);
+  buffer2.nuevoValor(arr_valores[1]);
+  buffer3.nuevoValor(arr_valores[2]);
+
+  arr_valores[0] = buffer1.media();
+  arr_valores[1] = buffer2.media();
+  arr_valores[2] = buffer3.media();
+}
 
 //
 // Suavizado ponderado
@@ -234,10 +240,9 @@ float suavizar_valor(float valor_actual, float valor_anterior, float alpha){
 }
 
 // Funcion para suavizar un array
-void suavizar_arr(float* arr_actual, float* arr_anterior, int len, float alpha){
+void suavizado_ponderado_array(float* arr_actual, float* arr_anterior, int len, float alpha){
   for (int i = 0; i < len; i++){
     arr_actual[i] = suavizar_valor(arr_actual[i],arr_anterior[i],alpha);
-    arr_anterior[i] = arr_actual[i];
   }
 } 
 
@@ -249,6 +254,40 @@ float cambiar_factor_suavizado(float alpha){
     alpha -= 0.1;
   }
   return alpha;
+}
+
+//
+// Gestión del suavizado
+//
+
+void metodo_buffer(bool& ponderado, int len, CircularBuffer*& buffer1, CircularBuffer*& buffer2, CircularBuffer*& buffer3){
+
+  ponderado = false;
+
+  // Liberar memoria de buffers existentes (si ya estaban asignados)
+  if (buffer1) delete buffer1;
+  if (buffer2) delete buffer2;
+  if (buffer3) delete buffer3;
+
+  // Crear nuevos buffers circulares con el tamaño especificado
+  buffer1 = new CircularBuffer(len);
+  buffer2 = new CircularBuffer(len);
+  buffer3 = new CircularBuffer(len);
+}
+
+void metodo_ponderado(bool& ponderado, CircularBuffer* buffer1, CircularBuffer* buffer2, CircularBuffer* buffer3){
+
+  ponderado = true;
+  
+  // Liberamos el espacio que consumian los buffers y los dejamos como nulos
+  delete buffer1;
+  buffer1 = nullptr;
+
+  delete buffer2;
+  buffer2 = nullptr;
+
+  delete buffer3;
+  buffer3 = nullptr;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -338,12 +377,38 @@ void setTriangleCompassNeedle(float heading){
     M5.Lcd.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_RED);
 }
 
+
+// Menu de calibración avanzado
+
+/*
+Este menú saltará cuando se pulse el botón B en la pantalla principal:
+
+- Si se pulsa A se cambiará de método de suavizado (buffer circular o ponderado)
+- Si se pulsa B el factor de suavizado o el tamaño del buffer (depende del método activo) cambiará
+- Si se pulsa C se volverá a la pantalla principal
+*/
+void menu_calibracion_avanzado(){
+  
+}
+
 /////////////////////////////////////////////////////////////////////////////
-// Variables que no se donde poner
+// Variables
 /////////////////////////////////////////////////////////////////////////////
 
 unsigned long prevMillis = 0;
-const long LCDinterval = 100; // Intervalo de refresco LCD
+const long LCDinterval = 100;       // Intervalo de refresco LCD
+
+bool suavizado_ponderado = false;   // Método de suavizado
+
+int longitud_buffer = 50;           // Longitud de los buffers por defecto
+
+CircularBuffer buffer_x(longitud_buffer);  // Buffers circulares
+CircularBuffer buffer_y(longitud_buffer);
+CircularBuffer buffer_z(longitud_buffer);
+
+float alpha = 0.7;                  // Factor de suavizado por defecto
+
+float datos_anteriores[3] = {0.0f, 0.0f, 0.0f};
 
 /////////////////////////////////////////////////////////////////////////////
 // SetUp
@@ -385,6 +450,15 @@ void loop() {
   char text_string[100];
   M5.update();
   bmm150_read_mag_data(&dev);
+
+  float datos[] = {dev.data.x - mag_offset.x,dev.data.y - mag_offset.y,dev.data.z - mag_offset.z};
+
+  if (suavizado_ponderado){
+    suavizado_ponderado_array(datos,datos_anteriores,3,alpha);
+  }else{
+    suavizado_bufferCircular_array( buffer_x, buffer_y, buffer_z, datos);
+  }
+
   float head_dir = atan2(dev.data.x - mag_offset.x, dev.data.y - mag_offset.y) * 180.0 / M_PI;
   if (head_dir < 0.0) {
     head_dir += 360;
@@ -405,19 +479,10 @@ void loop() {
 
   Serial.printf("Magnetometer data, heading %.2f\n >>> Rumbo: %s \n", head_dir, rumbo);
 
-  //Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", dev.data.x,
-  //              dev.data.y, dev.data.z);
+  Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", datos[0],
+                datos[1], datos[2]);
 
-  value_queue(&buf_x, dev.data.x);
-  value_queue(&buf_y, dev.data.y);
-  value_queue(&buf_y, dev.data.z);
-
-  float xMean = value_average(&buf_x);
-  float yMean = value_average(&buf_y);
-  float zMean = value_average(&buf_z);
-
-
-  Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", xMean, yMean, zMean);
+  // Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", xMean, yMean, zMean);
 
   Serial.printf("MID X : %.2f \nMID Y : %.2f \nMID Z : %.2f \n",
                 mag_offset.x, mag_offset.y, mag_offset.z);
