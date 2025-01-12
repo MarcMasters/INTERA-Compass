@@ -209,14 +209,21 @@ public:
     }
 };
 
-void suavizado_bufferCircular_array(CircularBuffer& buffer1, CircularBuffer& buffer2, CircularBuffer& buffer3, float* arr_valores){
+void suavizado_bufferCircular_array(CircularBuffer& buffer1, CircularBuffer& buffer2, float* arr_valores){
   buffer1.nuevoValor(arr_valores[0]);
   buffer2.nuevoValor(arr_valores[1]);
-  buffer3.nuevoValor(arr_valores[2]);
 
   arr_valores[0] = buffer1.media();
   arr_valores[1] = buffer2.media();
-  arr_valores[2] = buffer3.media();
+}
+
+int cambiar_longitud_buffer(int len){
+  if ((len-10) <= 0){
+    len = 100;
+  }else{
+    len -= 10;
+  }
+  return len;
 }
 
 //
@@ -249,24 +256,41 @@ float cambiar_factor_suavizado(float alpha){
 // Gestión del suavizado
 //
 
-void metodo_buffer(bool& ponderado, int len, CircularBuffer& buffer1, CircularBuffer& buffer2, CircularBuffer& buffer3){
-
-  ponderado = false;
+void metodo_buffer(int len, CircularBuffer& buffer1, CircularBuffer& buffer2){
 
   // Inicializar buffers con el tamaño especificado
   buffer1 =  CircularBuffer(len);
   buffer2 =  CircularBuffer(len);
-  buffer3 =  CircularBuffer(len);
 }
 
-void metodo_ponderado(bool& ponderado, CircularBuffer& buffer1, CircularBuffer& buffer2, CircularBuffer& buffer3){
-
-  ponderado = true;
+void metodo_ponderado(CircularBuffer& buffer1, CircularBuffer& buffer2){
   
   // Reiniciar los buffers con la longitud mínima permitida para que ocupen poco
   buffer1 = CircularBuffer(1);
   buffer2 = CircularBuffer(1);
-  buffer3 = CircularBuffer(1);
+}
+
+void cambiar_parametro_suavizado(bool ponderado,float& alpha,int& len){
+  if(ponderado){
+    cambiar_factor_suavizado(alpha);
+  }else{
+    cambiar_longitud_buffer(len);
+  }
+}
+
+void salir_menu_suavizado(bool& ponderado, bool copia_ponderado, float& alpha, float copia_alpha, int& len, int copia_len,
+CircularBuffer& buffer1, CircularBuffer& buffer2){
+
+  if (ponderado != copia_ponderado){
+    ponderado = copia_ponderado;
+    if (ponderado){
+      alpha = copia_alpha;
+      metodo_ponderado(buffer1,buffer2);
+    }else{
+      len = copia_len;
+      metodo_buffer(len,buffer1,buffer2);
+    }
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -356,7 +380,6 @@ void setTriangleCompassNeedle(float heading){
     M5.Lcd.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_RED);
 }
 
-
 // Menu de calibración avanzado
 
 /*
@@ -366,8 +389,22 @@ Este menú saltará cuando se pulse el botón B en la pantalla principal:
 - Si se pulsa B el factor de suavizado o el tamaño del buffer (depende del método activo) cambiará
 - Si se pulsa C se volverá a la pantalla principal
 */
-void menu_calibracion_avanzado(){
-  
+
+void menu_calibracion_avanzado(bool& ponderado, float& alpha, int& len,CircularBuffer& buffer1, CircularBuffer& buffer2){
+  bool copia_ponderado = ponderado;
+  int copia_len = len;
+  float copia_alpha = alpha;
+
+  if (M5.BtnA.wasPressed()) {
+    copia_ponderado = !copia_ponderado;
+  }
+  if (M5.BtnB.wasPressed()) {
+    cambiar_parametro_suavizado(copia_ponderado, copia_alpha, copia_len);
+  }
+  if (M5.BtnC.wasPressed()) {
+    salir_menu_suavizado(ponderado,copia_ponderado,alpha,copia_alpha,longitud_buffer,copia_len,
+    buffer1,buffer2);
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -383,7 +420,6 @@ int longitud_buffer = 50;           // Longitud de los buffers por defecto
 
 CircularBuffer buffer_x(longitud_buffer);  // Buffers circulares
 CircularBuffer buffer_y(longitud_buffer);
-CircularBuffer buffer_z(longitud_buffer);
 
 float alpha = 0.7;                  // Factor de suavizado por defecto
 
@@ -430,15 +466,15 @@ void loop() {
   M5.update();
   bmm150_read_mag_data(&dev);
 
-  float datos[] = {dev.data.x - mag_offset.x,dev.data.y - mag_offset.y,dev.data.z - mag_offset.z};
+  float datos[] = {dev.data.x - mag_offset.x,dev.data.y - mag_offset.y};
 
   if (suavizado_ponderado){
-    suavizado_ponderado_array(datos,datos_anteriores,3,alpha);
+    suavizado_ponderado_array(datos,datos_anteriores,2,alpha);
   }else{
-    suavizado_bufferCircular_array( buffer_x, buffer_y, buffer_z, datos);
+    suavizado_bufferCircular_array( buffer_x, buffer_y, datos);
   }
 
-  float head_dir = atan2(dev.data.x - mag_offset.x, dev.data.y - mag_offset.y) * 180.0 / M_PI;
+  float head_dir = atan2(datos[0], datos[1]) * 180.0 / M_PI;
   if (head_dir < 0.0) {
     head_dir += 360;
   }
