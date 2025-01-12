@@ -404,6 +404,7 @@ void loop() {
 
   if (M5.BtnC.wasPressed()) {
     save_direction(rumbo);
+    Serial.printf("Direccion actual guardada");
 
     //Rectangulo para preguntar donde guardar la direccion
     img.fillRoundRect(10, 100, 300, 50, 5, TFT_GREEN);
@@ -411,12 +412,25 @@ void loop() {
     img.drawCentreString("¿Deseas ir en esta dirección?", 10 + 300 / 2, 100 + 50 / 2 - 8, 2);
     img.pushSprite(0, 0);
 
-    //Direccion deseada o no deseada
-    if (M5.BtnA.wasPressed()) {
-      save_desiredDirection(rumbo);
-    }
-    if (M5.BtnC.wasPressed()) {
-      save_undesiredDirection(rumbo);
+    bool decisionTaken = false;
+
+    while (!decisionTaken) {
+      M5.update(); // Actualizar el estado de los botones
+
+      //Direccion deseada o no deseada
+      if (M5.BtnA.wasPressed()) {
+        save_desiredDirection(rumbo);
+        Serial.println("Dirección marcada como deseada.");
+        decisionTaken = true; // Salir del bucle
+        }
+
+      if (M5.BtnC.wasPressed()) {
+        save_undesiredDirection(rumbo);
+        Serial.println("Dirección marcada como no deseada.");
+        decisionTaken = true; // Salir del bucle
+        }
+
+      delay(10);
     }
   }
 
