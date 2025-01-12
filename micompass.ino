@@ -423,7 +423,7 @@ CircularBuffer buffer_y(longitud_buffer);
 
 float alpha = 0.7;                  // Factor de suavizado por defecto
 
-float datos_anteriores[3] = {0.0f, 0.0f, 0.0f};
+float datos_anteriores[2] = {0.0f, 0.0f};
 
 /////////////////////////////////////////////////////////////////////////////
 // SetUp
@@ -473,6 +473,9 @@ void loop() {
   }else{
     suavizado_bufferCircular_array( buffer_x, buffer_y, datos);
   }
+
+  datos_anteriores[0] = datos[0];
+  datos_anteriores[1] = datos[1];
 
   float head_dir = atan2(datos[0], datos[1]) * 180.0 / M_PI;
   if (head_dir < 0.0) {
