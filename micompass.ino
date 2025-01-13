@@ -182,6 +182,8 @@ bool rUclose(String direction, String savedDirection, int proximityRange = 30) {
     }
 }
 
+bool pitido_emitido = false;
+
 /////////////////////////////////////////////////////////////////////////////
 // Buffer circular
 /////////////////////////////////////////////////////////////////////////////
@@ -397,7 +399,7 @@ void loop() {
 
   // -- Serial Monitor ---------------------------------------------------------------
 
-  Serial.printf("Magnetometer data, heading %.2f\n >>> Rumbo: %s \n", head_dir, rumbo);
+  // Serial.printf("Magnetometer data, heading %.2f\n >>> Rumbo: %s \n", head_dir, rumbo);
 
   //Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", dev.data.x,
   //              dev.data.y, dev.data.z);
@@ -408,27 +410,28 @@ void loop() {
   float xMean = value_average(&xBuffer);
   float yMean = value_average(&yBuffer);
 
-  Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", xMean, yMean, dev.data.z);
+  // Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", xMean, yMean, dev.data.z);
 
-  Serial.printf("MID X : %.2f \nMID Y : %.2f \nMID Z : %.2f \n",
-                mag_offset.x, mag_offset.y, mag_offset.z);
+  // Serial.printf("MID X : %.2f \nMID Y : %.2f \nMID Z : %.2f \n",
+  //               mag_offset.x, mag_offset.y, mag_offset.z);
 
-  Serial.printf("\n\n\n\n\n");
+
+  // Serial.printf("\n\n\n\n\n");
 
   // ---------------------------------------------------------------------------------
 
-  img.fillSprite(0);
-  sprintf(text_string, "MAG X: %.2f", dev.data.x);
-  img.drawString(text_string, 10, 20,
-                 4);  // draw string with padding.
-  sprintf(text_string, "MAG Y: %.2f", dev.data.y);
-  img.drawString(text_string, 10, 50, 4);
-  sprintf(text_string, "MAG Z: %.2f", dev.data.z);
-  img.drawString(text_string, 10, 80, 4);
-  sprintf(text_string, "HEAD Angle: %.2f", head_dir);
-  img.drawString(text_string, 10, 110, 4);
-  img.drawCentreString("Press BtnA enter calibrate", 160, 150, 4);
-  img.pushSprite(0, 0);
+  // img.fillSprite(0);
+  // sprintf(text_string, "MAG X: %.2f", dev.data.x);
+  // img.drawString(text_string, 10, 20,
+  //                4);  // draw string with padding.
+  // sprintf(text_string, "MAG Y: %.2f", dev.data.y);
+  // img.drawString(text_string, 10, 50, 4);
+  // sprintf(text_string, "MAG Z: %.2f", dev.data.z);
+  // img.drawString(text_string, 10, 80, 4);
+  // sprintf(text_string, "HEAD Angle: %.2f", head_dir);
+  // img.drawString(text_string, 10, 110, 4);
+  // img.drawCentreString("Press BtnA enter calibrate", 160, 150, 4);
+  // img.pushSprite(0, 0);
 
   if (M5.BtnA.wasPressed()) {
     img.fillSprite(0);
@@ -445,7 +448,7 @@ void loop() {
     M5.Lcd.fillRoundRect(10, 100, 300, 50, 5, TFT_GREEN);
     M5.Lcd.drawRoundRect(10, 100, 300, 50, 5, TFT_WHITE);
     M5.Lcd.setTextColor(TFT_WHITE, TFT_GREEN);
-    M5.Lcd.drawCentreString("¿Deseas ir en esta dirección?", 10 + 300 / 2, 100 + 50 / 2 - 8, 1);
+    M5.Lcd.drawCentreString("¿Deseas esta direccion?", 10 + 300 / 2, 100 + 50 / 2 - 8, 1);
 
     bool decisionTaken = false;
 
@@ -470,11 +473,23 @@ void loop() {
   }
 
   if (desiredDirection != ""){
-    if (rUclose(rumbo,desiredDirection)){M5.Speaker.tone(661, 1000);}
+    if (rUclose(rumbo,desiredDirection) && !pitido_emitido){
+      M5.Speaker.tone(661, 1000);
+      pitido_emitido = true;
+      }
+    else{
+      pitido_emitido = false;
+    }
   }
 
   if (undesiredDirection != ""){
-    if (rUclose(rumbo,undesiredDirection)){M5.Speaker.tone(440, 1000);}
+    if (rUclose(rumbo,undesiredDirection) && !pitido_emitido){
+      M5.Speaker.tone(440, 1000);
+      pitido_emitido = true;
+      }
+      else{
+        pitido_emitido = false;
+      }
   }
 
   unsigned long currMillis = millis();
