@@ -152,7 +152,7 @@ void save_undesiredDirection(String direction) {
 // Funcion para detectar la proximidad del usuario a las direcciones
 /////////////////////////////////////////////////////////////////////////////
 
-bool rUclose(String direction, String savedDirection, int proximityRange = 30) {
+bool rUclose(String direction, String savedDirection, int proximityRange = 15) {
     //Se calcula un rango de proximidad en base a la direccion guardada
     //No obstante, primero debemos pasar de string a grados, inicializo las variables
     int dirDegrees = 0;
@@ -473,23 +473,27 @@ void loop() {
   }
 
   if (desiredDirection != ""){
-    if (rUclose(rumbo,desiredDirection) && !pitido_emitido){
-      M5.Speaker.tone(661, 1000);
-      pitido_emitido = true;
+    if (rUclose(rumbo,desiredDirection)){
+      if (!pitido_emitido){
+        M5.Speaker.tone(661, 500);
+        pitido_emitido = true;
       }
+    }
     else{
       pitido_emitido = false;
     }
   }
 
   if (undesiredDirection != ""){
-    if (rUclose(rumbo,undesiredDirection) && !pitido_emitido){
-      M5.Speaker.tone(440, 1000);
-      pitido_emitido = true;
+    if (rUclose(rumbo,undesiredDirection)){
+      if (!pitido_emitido){
+        M5.Speaker.tone(440, 500);
+        pitido_emitido = true;
       }
-      else{
-        pitido_emitido = false;
-      }
+    }
+    else{
+      pitido_emitido = false;
+    }
   }
 
   unsigned long currMillis = millis();
