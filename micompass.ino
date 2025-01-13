@@ -11,6 +11,28 @@
 #include <stdexcept> // Para lanzar excepciones
 
 /////////////////////////////////////////////////////////////////////////////
+// Variables
+/////////////////////////////////////////////////////////////////////////////
+
+// Variables de la tasa de refresco
+unsigned long prevMillis = 0;
+const long LCDinterval = 100;       // Intervalo de refresco LCD
+
+// Selector de interfaz
+int interfaz = 0;
+
+// Variables del suavizado
+bool suavizado_ponderado = false;   // Método de suavizado
+int longitud_buffer = 50;           // Longitud de los buffers por defecto
+float alpha = 0.7;                  // Factor de suavizado por defecto
+float datos_anteriores[2] = {0.0f, 0.0f};
+
+bool updated = false;
+bool copia_ponderado = suavizado_ponderado;
+int copia_len = longitud_buffer;
+float copia_alpha = alpha;
+
+/////////////////////////////////////////////////////////////////////////////
 // Funciones básicas magnetómetro
 /////////////////////////////////////////////////////////////////////////////
 
@@ -202,6 +224,10 @@ public:
     }
 };
 
+// Buffers circulares
+CircularBuffer buffer_x(longitud_buffer);
+CircularBuffer buffer_y(longitud_buffer);
+
 void suavizado_bufferCircular_array(CircularBuffer& buffer1, CircularBuffer& buffer2, float* arr_valores){
   buffer1.nuevoValor(arr_valores[0]);
   buffer2.nuevoValor(arr_valores[1]);
@@ -265,9 +291,9 @@ void metodo_ponderado(CircularBuffer& buffer1, CircularBuffer& buffer2){
 
 void cambiar_parametro_suavizado(bool ponderado,float& alpha,int& len){
   if(ponderado){
-    cambiar_factor_suavizado(alpha);
+    alpha = cambiar_factor_suavizado(alpha);
   }else{
-    cambiar_longitud_buffer(len);
+    len = cambiar_longitud_buffer(len);
   }
 }
 
@@ -319,7 +345,6 @@ void setHeadingStr(float heading, int xPos, int yPos, uint16_t *colors, bool wro
   else{
     M5.Lcd.setTextColor(colors[2]);
   }
- 
   
   int headingRound = round(heading);
   String heading_str = String(headingRound)+(char)167;
@@ -523,7 +548,7 @@ void drawLinesAndIndicators(int centerH, int centerV, float head_dir, uint16_t *
   }
 }
 
-void setAdvancedUI(float head_dir, uint16_t *colors, bool wrongFlag=false){
+void setCompassUI(float head_dir, uint16_t *colors, bool wrongFlag=false){
   // Coordenadas del centro de la pantalla
   float lcdCenterH = M5.Lcd.width()/2;
   float lcdCenterV = M5.Lcd.height()/2;
@@ -541,6 +566,50 @@ void setAdvancedUI(float head_dir, uint16_t *colors, bool wrongFlag=false){
   drawArrow(lcdCenterH,lcdCenterV, colors);
 }
 
+void setSettingsUI(bool smoothBuffer, float smoothFactor, float bufferLen){
+  // Coordenadas del centro de la pantalla
+  float lcdCenterH = M5.Lcd.width()/2;
+  float lcdCenterV = M5.Lcd.height()/2;
+
+  // Limpieza de la pantalla
+  M5.Lcd.fillScreen(TFT_BLACK);
+  
+  // Título
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.setTextColor(TFT_WHITE);
+  M5.Lcd.setTextDatum(MC_DATUM);
+  M5.Lcd.drawString("AJUSTES DE SUAVIZADO",lcdCenterH,20);
+
+  int verticalOffset = 30;
+  // Método y Parámetro
+  M5.Lcd.setTextDatum(ML_DATUM);
+  M5.Lcd.drawString("METODO:", 20,lcdCenterV-verticalOffset);
+  M5.Lcd.drawString("PARAMETRO:",20,lcdCenterV);
+
+  if (smoothBuffer){
+    M5.Lcd.setTextColor(TFT_YELLOW);
+    M5.Lcd.drawString("PONDERADO", lcdCenterH,lcdCenterV-verticalOffset);
+    M5.Lcd.drawString(String(smoothFactor), lcdCenterH,lcdCenterV);
+  }
+  else{
+    M5.Lcd.setTextColor(TFT_YELLOW);
+    M5.Lcd.drawString("BUFFER",lcdCenterH,lcdCenterV-verticalOffset);
+    M5.Lcd.drawString(String(bufferLen), lcdCenterH,lcdCenterV);
+  }
+  
+  // Textos indicativos de los botones
+  M5.Lcd.setTextDatum(MC_DATUM);
+  M5.Lcd.setTextColor(TFT_PINK);
+  M5.Lcd.drawString("btnB",lcdCenterH,lcdCenterV+80);
+  M5.Lcd.drawString("PARAMETRO",lcdCenterH,lcdCenterV+100);
+
+  M5.Lcd.drawString("btnA",lcdCenterH-110,lcdCenterV+80);
+  M5.Lcd.drawString("METODO",lcdCenterH-110,lcdCenterV+100);
+
+  M5.Lcd.drawString("btnC",lcdCenterH+110,lcdCenterV+80);
+  M5.Lcd.drawString("VOLVER",lcdCenterH+110,lcdCenterV+100);
+}
+
 // Menu de calibración avanzado
 
 /*
@@ -551,10 +620,15 @@ Este menú saltará cuando se pulse el botón B en la pantalla principal:
 - Si se pulsa C se volverá a la pantalla principal
 */
 
-void menu_calibracion_avanzado(bool& ponderado, float& alpha, int& len,CircularBuffer& buffer1, CircularBuffer& buffer2){
-  bool copia_ponderado = ponderado;
-  int copia_len = len;
-  float copia_alpha = alpha;
+void menu_calibracion_avanzado(bool& ponderado, float& alpha, int& len, CircularBuffer& buffer1, CircularBuffer& buffer2){
+  if (!updated){
+    bool copia_ponderado = suavizado_ponderado;
+    int copia_len = longitud_buffer;
+    float copia_alpha = alpha;
+  }
+
+  // Interfaz
+  setSettingsUI(copia_ponderado, copia_alpha, copia_len);
 
   if (M5.BtnA.wasPressed()) {
     copia_ponderado = !copia_ponderado;
@@ -563,32 +637,13 @@ void menu_calibracion_avanzado(bool& ponderado, float& alpha, int& len,CircularB
     cambiar_parametro_suavizado(copia_ponderado, copia_alpha, copia_len);
   }
   if (M5.BtnC.wasPressed()) {
-    salir_menu_suavizado(ponderado,copia_ponderado,alpha,copia_alpha,longitud_buffer,copia_len,
+    salir_menu_suavizado(ponderado,copia_ponderado,alpha,copia_alpha,len,copia_len,
     buffer1,buffer2);
+    interfaz = 0;
+    updated = false;
+    M5.Lcd.fillScreen(TFT_BLACK);
   }
 }
-
-/////////////////////////////////////////////////////////////////////////////
-// Variables
-/////////////////////////////////////////////////////////////////////////////
-
-unsigned long prevMillis = 0;
-const long LCDinterval = 100;       // Intervalo de refresco LCD
-// unsigned long prevMillisTheme = 0;
-// const long themeInterval = 1200; // Intervalo de refresco LCD
-// unsigned long pressedTime = 0;   // Tiempo en el que se presionó el botón
-// bool holding = false;            // Indicador de botón mantenido
-
-bool suavizado_ponderado = false;   // Método de suavizado
-
-int longitud_buffer = 50;           // Longitud de los buffers por defecto
-
-CircularBuffer buffer_x(longitud_buffer);  // Buffers circulares
-CircularBuffer buffer_y(longitud_buffer);
-
-float alpha = 0.7;                  // Factor de suavizado por defecto
-
-float datos_anteriores[2] = {0.0f, 0.0f};
 
 /////////////////////////////////////////////////////////////////////////////
 // SetUp
@@ -627,7 +682,7 @@ void setup() {
 /////////////////////////////////////////////////////////////////////////////
 
 void loop() {
-  M5.update();  // Read the press state of the key.
+  M5.update();
   bmm150_read_mag_data(&dev);
 
   float datos[] = {dev.data.x - mag_offset.x,dev.data.y - mag_offset.y};
@@ -659,60 +714,62 @@ void loop() {
 
   // -- Serial Monitor ---------------------------------------------------------------
 
-  Serial.printf("Magnetometer data, heading %.2f\n >>> Rumbo: %s \n", head_dir, rumbo);
+  // Serial.printf("Magnetometer data, heading %.2f\n >>> Rumbo: %s \n", head_dir, rumbo);
 
-  Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", datos[0],
-                datos[1], datos[2]);
+  // Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", datos[0],
+  //               datos[1], datos[2]);
 
-  // Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", xMean, yMean, zMean);
+  // // Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", xMean, yMean, zMean);
 
-  Serial.printf("MID X : %.2f \nMID Y : %.2f \nMID Z : %.2f \n",
-                mag_offset.x, mag_offset.y, mag_offset.z);
+  // Serial.printf("MID X : %.2f \nMID Y : %.2f \nMID Z : %.2f \n",
+  //               mag_offset.x, mag_offset.y, mag_offset.z);
 
-  Serial.printf("\n\n\n\n\n");
+  // Serial.printf("%d \n",interfaz);
+
+    // Serial.printf("\n\n\n\n\n");
 
   // ---------------------------------------------------------------------------------
-
-  // Se activa si mantienes C y pulsas A
-  if (M5.BtnA.wasPressed() && M5.BtnC.isPressed()) {
-    invocar_calibracion_infinito();
-  }
-
-  if (M5.BtnA.isPressed()){
-    pickColorTheme("LIGHT");
-  }
-  if (M5.BtnA.isReleased()){
-    pickColorTheme("DARK");
-  }
-
-  // Botón presionado
-  // if (M5.BtnB.wasPressed()){
-  //   pressedTime = millis(); // Se guarda el tiempo de inicio
-  //   holding = false;
-  // }
-
-  // // Botón mantenido durante 1s
-  // if (M5.BtnB.isPressed() && (millis() - pressedTime >= themeInterval)){
-  //   M5.Lcd.fillCircle(50,100,10,TFT_GREENYELLOW);
-  //   holding = true;
-  // }
-
-  // // Botón presionado y soltado
-  // if (M5.BtnB.wasReleased()){
-  //   M5.Lcd.fillCircle(50,150,10,TFT_BLUE);
-  //   if (!holding) {
-  //     M5.Lcd.fillCircle(50,50,10,TFT_RED);
-  //   }
-  //   pressedTime = 0;
-  // }
-
 
   unsigned long currMillis = millis();
   if (currMillis - prevMillis >= LCDinterval) {
     prevMillis = currMillis;
 
     // Actualizar la pantalla cada 100ms
-    setAdvancedUI(head_dir, colors, false);
+    switch (interfaz)
+    {
+    case 0:
+      // Se activa si mantienes C y pulsas A
+      if (M5.BtnB.wasPressed() && M5.BtnC.isPressed()) {
+        invocar_calibracion_infinito();
+      }
+
+      // Control del aspecto de la brújula
+      if (M5.BtnA.isPressed()){
+        pickColorTheme("LIGHT");
+      }
+      if (M5.BtnA.wasReleased()){
+        pickColorTheme("DARK");
+      }
+
+      if (M5.BtnB.isPressed()){
+        interfaz = 1;
+      }
+      if (M5.BtnC.isPressed()){
+        Serial.printf("AAAAAAAAAAAAAAAAA");
+        interfaz = 2;
+      }
+
+      // Interfaz de la brújula
+      setCompassUI(head_dir, colors, false);
+      break;
+    case 1:
+      // Control del menú de ajustes
+      menu_calibracion_avanzado(suavizado_ponderado, alpha, longitud_buffer, buffer_x, buffer_y);
+      break;
+    case 2:
+      // Interfaz de la elección de dirección
+      break;
+    }
   }
 
   delay(10);
