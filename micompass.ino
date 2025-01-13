@@ -22,7 +22,7 @@ const long LCDinterval = 100;       // Intervalo de refresco LCD
 int interfaz = 0;
 
 // Variables del suavizado
-bool suavizado_ponderado = false;   // Método de suavizado
+bool suavizado_ponderado = true;    // Método de suavizado
 int longitud_buffer = 50;           // Longitud de los buffers por defecto
 float alpha = 0.7;                  // Factor de suavizado por defecto
 float datos_anteriores[2] = {0.0f, 0.0f};
@@ -31,6 +31,16 @@ bool updated = false;
 bool copia_ponderado = suavizado_ponderado;
 int copia_len = longitud_buffer;
 float copia_alpha = alpha;
+
+// Variables para el guardado de dirección deseada/indeseada
+bool pitido_malo_emitido = false;
+bool pitido_bueno_emitido = false;
+bool undesiredChosen = false;
+bool desiredChosen = false;
+
+float currentDirection = 0;
+float desiredDirection = 0;
+float undesiredDirection = 0;
 
 /////////////////////////////////////////////////////////////////////////////
 // Funciones básicas magnetómetro
@@ -168,60 +178,78 @@ void invocar_calibracion_infinito(){
 // Funciones para guardar la direccion actual
 /////////////////////////////////////////////////////////////////////////////
 
-String currentDirection = "";
-String desiredDirection = "";
-String undesiredDirection = "";
+//
+// Funcion para detectar la proximidad del usuario a las direcciones
+//
 
-void save_direction(String direction) {
+bool rUclose(float direction, float savedDirection, int proximityRange = 10) {
+    //Se calcula un rango de proximidad en base a la direccion guardada
+
+    // Calculo rango de proximidad
+    int lowerBound = (savedDirection - proximityRange);
+    if (lowerBound < 0){
+      lowerBound = 360 + lowerBound;
+    }
+
+    int upperBound = (savedDirection + proximityRange);
+    if (upperBound > 360){
+      upperBound = upperBound - 360;
+    }
+
+    //A continuacion, se comprueba si esta dentro del rango
+    if (lowerBound < upperBound){
+      return (direction >= lowerBound && direction <= upperBound);
+    }
+    else{
+      return (direction >= lowerBound || direction <= upperBound); // Caso de cruce por 0° (ej. 330° a 30°)
+    }
+}
+
+
+void save_direction(float direction) {
     // Se almacena la direccion actual
     currentDirection = direction;
 }
 
-void save_desiredDirection(String direction) {
+void save_desiredDirection(float direction) {
     // Se almacena la direccion actual
     desiredDirection = direction;
 }
 
-void save_undesiredDirection(String direction) {
+void save_undesiredDirection(float direction) {
     // Se almacena la direccion actual
     undesiredDirection = direction;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// Funcion para detectar la proximidad del usuario a las direcciones
-/////////////////////////////////////////////////////////////////////////////
-
-bool rUclose(String direction, String savedDirection, int proximityRange = 15) {
-    //Se calcula un rango de proximidad en base a la direccion guardada
-    //No obstante, primero debemos pasar de string a grados, inicializo las variables
-    int dirDegrees = 0;
-    int savedDegrees = 0;
-
-    //Convierto direccion en grados
-    if (direction == "NORTE"){dirDegrees = 0;}
-    else if (direction == "ESTE"){dirDegrees = 90;}
-    else if (direction == "SUR"){dirDegrees = 180;}
-    else if (direction == "OESTE"){dirDegrees = 270;}
-
-    if (savedDirection == "NORTE"){savedDegrees = 0;}
-    else if (savedDirection == "ESTE"){savedDegrees = 90;}
-    else if (savedDirection == "SUR"){savedDegrees = 180;}
-    else if (savedDirection == "OESTE"){savedDegrees = 270;}
-
-    // Calculo rango de proximidad
-    int lowerBound = (savedDegrees - proximityRange + 360) % 360;
-    int upperBound = (savedDegrees + proximityRange) % 360;
-
-    //A continuacion, se comprueba si esta dentro del rango
-    if (lowerBound < upperBound){
-      return (dirDegrees >= lowerBound && dirDegrees <= upperBound);
+void toneDirection(float head_dir){
+  if (desiredDirection != 0){
+    if (rUclose(head_dir,desiredDirection)){
+      desiredChosen = true;
+      if (!pitido_bueno_emitido){
+        M5.Speaker.tone(661, 500);
+        pitido_bueno_emitido = true;
+      }
     }
     else{
-      return (dirDegrees >= lowerBound || dirDegrees <= upperBound); // Caso de cruce por 0° (ej. 330° a 30°)
+      desiredChosen = false;
+      pitido_bueno_emitido = false;
     }
-}
+  }
 
-bool pitido_emitido = false;
+  if (undesiredDirection != 0){
+    if (rUclose(head_dir,undesiredDirection)){
+      undesiredChosen = true;
+      if (!pitido_malo_emitido){
+        M5.Speaker.tone(440, 500);
+        pitido_malo_emitido = true;
+      }
+    }
+    else{
+      undesiredChosen = false;
+      pitido_malo_emitido = false;
+    }
+  }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Buffer circular
@@ -396,11 +424,18 @@ void pickColorTheme(String colorTheme){
   M5.Lcd.fillScreen(colors[0]);
 }
 
-void setHeadingStr(float heading, int xPos, int yPos, uint16_t *colors, bool wrong=false){
+void setHeadingStr(float heading, int xPos, int yPos, uint16_t *colors, bool wrong){
   M5.Lcd.setTextSize(2);
   M5.Lcd.setTextDatum(MC_DATUM);
   if (wrong){
     M5.Lcd.setTextColor(TFT_RED);
+  }
+  else{
+    M5.Lcd.setTextColor(colors[2]);
+  }
+
+  if (desiredChosen){
+    M5.Lcd.setTextColor(TFT_GREENYELLOW);
   }
   else{
     M5.Lcd.setTextColor(colors[2]);
@@ -412,7 +447,7 @@ void setHeadingStr(float heading, int xPos, int yPos, uint16_t *colors, bool wro
   M5.Lcd.drawString(heading_str, xPos, yPos);
 }
 
-void drawHeading(float head_dir, int xPos, int yPos, int centerH, uint16_t *colors, bool wrongFlag=false){
+void drawHeading(float head_dir, int xPos, int yPos, int centerH, uint16_t *colors, bool wrongFlag){
   // Dibujar marco
   int w = 70; int h = 32;
   int xFramePos = xPos - w / 2; int yFramePos = yPos - h / 2;
@@ -608,7 +643,7 @@ void drawLinesAndIndicators(int centerH, int centerV, float head_dir, uint16_t *
   }
 }
 
-void setCompassUI(float head_dir, uint16_t *colors, bool wrongFlag=false){
+void setCompassUI(float head_dir, uint16_t *colors, bool wrongFlag){
   // Coordenadas del centro de la pantalla
   float lcdCenterH = M5.Lcd.width()/2;
   float lcdCenterV = M5.Lcd.height()/2;
@@ -665,6 +700,36 @@ void setSettingsUI(bool smoothBuffer, float smoothFactor, float bufferLen){
 
   M5.Lcd.drawString("btnA",lcdCenterH-110,lcdCenterV+80);
   M5.Lcd.drawString("METODO",lcdCenterH-110,lcdCenterV+100);
+
+  M5.Lcd.drawString("btnC",lcdCenterH+110,lcdCenterV+80);
+  M5.Lcd.drawString("VOLVER",lcdCenterH+110,lcdCenterV+100);
+}
+
+void directionsUI(float head_dir){
+  // Coordenadas del centro de la pantalla
+  float lcdCenterH = M5.Lcd.width()/2;
+  float lcdCenterV = M5.Lcd.height()/2;
+
+  // Limpieza de la pantalla
+  M5.Lcd.fillScreen(TFT_BLACK);
+
+  // Dirección actual
+  drawHeading(head_dir,lcdCenterH,20,lcdCenterH, colors, undesiredChosen);
+
+  // Rectangulo para preguntar donde guardar la direccion
+  M5.Lcd.fillRoundRect(10, 100, 300, 50, 5, TFT_GREEN);
+  M5.Lcd.drawRoundRect(10, 100, 300, 50, 5, TFT_WHITE);
+  M5.Lcd.setTextColor(TFT_WHITE, TFT_GREEN);
+  M5.Lcd.drawCentreString("¿Deseas esta direccion?", 10 + 300 / 2, 100 + 50 / 2 - 8, 1);
+
+  // Textos indicativos de los botones
+  M5.Lcd.setTextDatum(MC_DATUM);
+  M5.Lcd.setTextColor(TFT_PINK);
+  M5.Lcd.drawString("btnB",lcdCenterH,lcdCenterV+80);
+  M5.Lcd.drawString("MALA",lcdCenterH,lcdCenterV+100);
+
+  M5.Lcd.drawString("btnA",lcdCenterH-110,lcdCenterV+80);
+  M5.Lcd.drawString("BUENA",lcdCenterH-110,lcdCenterV+100);
 
   M5.Lcd.drawString("btnC",lcdCenterH+110,lcdCenterV+80);
   M5.Lcd.drawString("VOLVER",lcdCenterH+110,lcdCenterV+100);
@@ -773,91 +838,6 @@ void loop() {
     strcpy(rumbo, "SUR");
   }
 
-  // -- Serial Monitor ---------------------------------------------------------------
-
-  // Serial.printf("Magnetometer data, heading %.2f\n >>> Rumbo: %s \n", head_dir, rumbo);
-
-  // Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", datos[0],
-  //               datos[1], datos[2]);
-
-  // // Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", xMean, yMean, zMean);
-
-  // Serial.printf("MID X : %.2f \nMID Y : %.2f \nMID Z : %.2f \n",
-  //               mag_offset.x, mag_offset.y, mag_offset.z);
-
-  // Serial.printf("MAG X : %.2f \nMAG Y : %.2f \nMAG Z : %.2f \n", xMean, yMean, dev.data.z);
-
-  // Serial.printf("MID X : %.2f \nMID Y : %.2f \nMID Z : %.2f \n",
-  //               mag_offset.x, mag_offset.y, mag_offset.z);
-
-
-  // Serial.printf("\n\n\n\n\n");
-
-  // ---------------------------------------------------------------------------------
-
-  if (M5.BtnA.wasPressed()) {
-    img.fillSprite(0);
-    img.drawCentreString("Flip + rotate core calibration", 160, 110, 4);
-    img.pushSprite(0, 0);
-    bmm150_calibrate(10000);
-  }
-
-  if (M5.BtnC.wasPressed()) {
-    save_direction(rumbo);
-    Serial.printf("Direccion actual guardada");
-
-    //Rectangulo para preguntar donde guardar la direccion
-    M5.Lcd.fillRoundRect(10, 100, 300, 50, 5, TFT_GREEN);
-    M5.Lcd.drawRoundRect(10, 100, 300, 50, 5, TFT_WHITE);
-    M5.Lcd.setTextColor(TFT_WHITE, TFT_GREEN);
-    M5.Lcd.drawCentreString("¿Deseas esta direccion?", 10 + 300 / 2, 100 + 50 / 2 - 8, 1);
-
-    bool decisionTaken = false;
-
-    while (!decisionTaken) {
-      M5.update(); // Actualizar el estado de los botones
-
-      //Direccion deseada o no deseada
-      if (M5.BtnA.wasPressed()) {
-        save_desiredDirection(rumbo);
-        Serial.println("Dirección marcada como deseada.");
-        decisionTaken = true; // Salir del bucle
-        }
-
-      if (M5.BtnC.wasPressed()) {
-        save_undesiredDirection(rumbo);
-        Serial.println("Dirección marcada como no deseada.");
-        decisionTaken = true; // Salir del bucle
-        }
-
-      delay(10);
-    }
-  }
-
-  if (desiredDirection != ""){
-    if (rUclose(rumbo,desiredDirection)){
-      if (!pitido_emitido){
-        M5.Speaker.tone(661, 500);
-        pitido_emitido = true;
-      }
-    }
-    else{
-      pitido_emitido = false;
-    }
-  }
-
-  if (undesiredDirection != ""){
-    if (rUclose(rumbo,undesiredDirection)){
-      if (!pitido_emitido){
-        M5.Speaker.tone(440, 500);
-        pitido_emitido = true;
-      }
-    }
-    else{
-      pitido_emitido = false;
-    }
-  }
-
   unsigned long currMillis = millis();
   if (currMillis - prevMillis >= LCDinterval) {
     prevMillis = currMillis;
@@ -866,6 +846,9 @@ void loop() {
     switch (interfaz)
     {
     case 0:
+      // Detecta si se va a la dirección deseada o indeseada
+      toneDirection(head_dir);
+
       // Se activa si mantienes C y pulsas A
       if (M5.BtnB.wasPressed() && M5.BtnC.isPressed()) {
         invocar_calibracion_infinito();
@@ -883,19 +866,42 @@ void loop() {
         interfaz = 1;
       }
       if (M5.BtnC.isPressed()){
-        Serial.printf("AAAAAAAAAAAAAAAAA");
         interfaz = 2;
       }
 
       // Interfaz de la brújula
-      setCompassUI(head_dir, colors, false);
+      setCompassUI(head_dir, colors, undesiredChosen);
       break;
+
     case 1:
       // Control del menú de ajustes
       menu_calibracion_avanzado(suavizado_ponderado, alpha, longitud_buffer, buffer_x, buffer_y);
       break;
+
     case 2:
       // Interfaz de la elección de dirección
+      save_direction(head_dir);
+      directionsUI(head_dir);
+
+      //Direccion deseada o no deseada
+      if (M5.BtnA.wasPressed()) {
+        save_desiredDirection(head_dir);
+
+        M5.Lcd.fillScreen(TFT_BLACK);
+        interfaz = 0;
+      }
+
+      if (M5.BtnB.wasPressed()) {
+        save_undesiredDirection(head_dir);
+        
+        M5.Lcd.fillScreen(TFT_BLACK);
+        interfaz = 0;
+      }
+
+      if (M5.BtnC.wasPressed()){
+        interfaz = 0;
+        M5.Lcd.fillScreen(TFT_BLACK);
+      }
       break;
     }
   }
