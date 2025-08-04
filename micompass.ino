@@ -427,7 +427,7 @@ void pickColorTheme(String colorTheme){
 void setHeadingStr(float heading, int xPos, int yPos, uint16_t *colors, bool wrong){
   M5.Lcd.setTextSize(2);
   M5.Lcd.setTextDatum(MC_DATUM);
-  if (wrong){
+  if (undesiredChosen){
     M5.Lcd.setTextColor(TFT_RED);
   }
   else{
